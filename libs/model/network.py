@@ -14,25 +14,29 @@ class Network:
         return self.weights
 
     def appendr_layer(self, layer: LayerTemplate):
+        prev_Ln: int = layer.prev_n if len(self.weights) == 0 else self.weights[-1].shape[0]
+
+        assert prev_Ln is not None and prev_Ln > 0
+
         self.append_layer(
             layer,
-            np.random.random((layer.k, layer.n)),
-            np.random.random((layer.k,))
+            np.random.uniform(-1, 1, (layer.n, prev_Ln)),
+            np.random.uniform(-1, 1, (layer.n,))
         )
 
     def append_layer(self, layer: LayerTemplate, w: np.ndarray, b: np.ndarray):
-        assert w.shape == (layer.k, layer.n), "Weights data must be same shape as template"
-        assert b.shape == (layer.k,), "Biases data must be same shape as template"
+        assert w.shape == (layer.n, w.shape[1]), "Weights data must be same shape as template"
+        assert b.shape == (layer.n,), "Biases data must be same shape as template"
 
         if len(self.weights) > 0:
             prev_weights_shape = self.weights[len(self.weights)-1].shape
             prev_biases_shape = self.biases[len(self.weights)-1].shape
 
-            assert layer.n == prev_weights_shape[0],\
-                "n must be the same number of weight rows as previous layer"
+            assert w.shape[1] == prev_weights_shape[0],\
+                f"n must be the same number of weight rows as previous layer n: {w.shape} prev n: {prev_weights_shape}"
 
-            assert layer.n == prev_biases_shape[0],\
-                "n must be the same number of biases as previous layer"
+            assert w.shape[1] == prev_biases_shape[0],\
+                f"n must be the same number of biases as previous layer n: {w.shape} prev n: {prev_biases_shape}"
 
         self.weights.append(w)
         self.biases.append(b)
@@ -45,7 +49,6 @@ class Network:
             a = activator(np.dot(w, a) + b)
         return a
 
-    # TODO: Can be optimized into list comprehension
     def feed_forwards(self, a: np.ndarray):
         activations = [a]
         for b, w, activator in zip(self.biases, self.weights, self.activators):

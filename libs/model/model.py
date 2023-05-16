@@ -2,6 +2,7 @@ import numpy as np
 
 from libs.model.layertemplate import LayerTemplate
 from libs.model.network import Network
+from libs.model_helpers import linalg
 
 
 class Model:
@@ -19,30 +20,30 @@ class Model:
 
     def sample(self, input: np.ndarray, label: np.ndarray, cost_func):
         a = self.nn.feed_forward(input)
-        return cost_func(a, label)
+        return np.sum(cost_func(a, label))
 
-    def backprop(self, input: np.ndarray, label: np.ndarray, cost_func, dcost_func):
-        print(input, label)
-
+    def backprop(self, input: np.ndarray, label: np.ndarray, dcost_func):
         activations = self.nn.feed_forwards(input)
-        print(activations)
 
         dc_dw = []
         dc_db = []
         dc_da = []
 
+        dc_daL = None
         for L in range(len(self.nn.weights) - 1, -1, -1):
-            print(L)
+            w = self.nn.weights[L]  # w(L): j X k
+            b = self.nn.biases[L]  # b(L): j X 1
+            z = np.dot(w, activations[L]) + b  # z(L): j X 1
+            a = activations[L+1]  # a(L): j X 1
 
             # Find derivative of cost with respect to its weights
-            w = self.nn.weights[L]  # w(L)
-            b = self.nn.biases[L]  # b(L)
-            z = np.dot(w, activations[L]) + b  # z(L)
-            a = self.nn.activators[L](z)  # a(L)
+            if dc_daL is None:
+                dc_daL = dcost_func(a, label) # j X 1
 
-            dc_da_dz = self.nn.dactivators[L](z) * dcost_func(a, label)
-            dc_db.append(dc_da_dz)
-            dc_dw.append(activations[L] * dc_da_dz)
-            dc_da = w * dc_da_dz
+            dc_da_dz = linalg.dcost_db(dc_daL, self.nn.dactivators[L](z))
+            dc_db.append(dc_da_dz)  # j X 1
+            dc_dw.append(linalg.dcost_dw(dc_da_dz, activations[L]))  # j X k
+            dc_daL = linalg.dcost_dpreva(dc_da_dz, w)  # j X 1
+            dc_da.append(dc_daL)  # j X 1
 
         return dc_dw, dc_db, dc_da

@@ -21,3 +21,7 @@ def dsigmoid(x: np.ndarray) -> np.ndarray:
 def tanh(x: np.ndarray) -> np.ndarray:
     return np.tanh(x)
 
+
+def dtanh(x: np.ndarray) -> np.ndarray:
+    return 1 - np.square(tanh(x))
+
