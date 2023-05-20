@@ -9,6 +9,7 @@ class Network:
         self.activators = []
         self.dactivators = []
         self.activations = []
+        self.layer_templates: list[LayerTemplate] = []
 
     def __str__(self):
         return self.weights
@@ -42,6 +43,7 @@ class Network:
         self.biases.append(b)
         self.activators.append(layer.activator)
         self.dactivators.append(layer.dactivator)
+        self.layer_templates.append(layer)
 
     # Given vector a, 'feed' the network
     def feed_forward(self, a: np.ndarray):

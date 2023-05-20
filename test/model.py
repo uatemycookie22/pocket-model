@@ -81,25 +81,25 @@ class ModelTest(unittest.TestCase):
 
         y = np.array([1])
         expected = ([np.array([0])], [np.array([0])], [np.array([0])])
-        actual = sut.backprop(inputs.onen, y, costs.dabs_squared)
+        actual = sut.step(inputs.onen, y, costs.dabs_squared)
 
         self.assertEqual(expected, actual)
 
         y = np.array([0])
         expected = ([np.array([2])], [np.array([2])], [np.array([2])])
-        actual = sut.backprop(inputs.onen, y, costs.dabs_squared)
+        actual = sut.step(inputs.onen, y, costs.dabs_squared)
 
         self.assertEqual(expected, actual)
 
         y = np.array([0])
         expected = ([np.array([2])], [np.array([2])], [np.array([2])])
-        actual = sut.backprop(inputs.onen, y, costs.dabs_squared)
+        actual = sut.step(inputs.onen, y, costs.dabs_squared)
 
         self.assertEqual(expected, actual)
 
         y = np.array([2])
         expected = ([np.array([-2])], [np.array([-2])], [np.array([-2])])
-        actual = sut.backprop(inputs.onen, y, costs.dabs_squared)
+        actual = sut.step(inputs.onen, y, costs.dabs_squared)
 
         self.assertEqual(expected, actual)
 
@@ -117,7 +117,7 @@ class ModelTest(unittest.TestCase):
         sut.nn = nn
 
         expected = ([np.array([1])], [np.array([1])], [np.array([1])])
-        actual = sut.backprop(inputs.onen, y, costs.dabs_squared)
+        actual = sut.step(inputs.onen, y, costs.dabs_squared)
 
         self.assertEqual(expected, actual)
 
@@ -133,7 +133,7 @@ class ModelTest(unittest.TestCase):
         sut.nn = nn
 
         expected = ([np.array([3])], [np.array([3])], [np.array([6])])
-        actual = sut.backprop(inputs.onen, y, costs.dabs_squared)
+        actual = sut.step(inputs.onen, y, costs.dabs_squared)
 
         self.assertEqual(expected, actual)
 
@@ -148,7 +148,7 @@ class ModelTest(unittest.TestCase):
         sut.nn = nn
 
         (actual_weights, actual_biases, actual_activations) = \
-            sut.backprop(inputs.threen, y, costs.dabs_squared)
+            sut.step(inputs.threen, y, costs.dabs_squared)
         expected = [np.array([[26, 52, 78]])]
 
         self.assertTrue(np.array_equal(expected, actual_weights), f"w expected: {expected} actual: {actual_weights}")
@@ -175,7 +175,7 @@ class ModelTest(unittest.TestCase):
         sut.nn = nn
 
         (actual_weights, actual_biases, actual_activations) = \
-            sut.backprop(inputs.onen, y, costs.dabs_squared)
+            sut.step(inputs.onen, y, costs.dabs_squared)
 
         expected = [np.array([3]), np.array([6])]
         self.assertEqual(expected, actual_weights, "w")
@@ -209,7 +209,7 @@ class ModelTest(unittest.TestCase):
         sut.nn = nn
 
         (actual_weights, actual_biases, actual_activations) = \
-            sut.backprop(inputs.fourn, y, costs.dabs_squared)
+            sut.step(inputs.fourn, y, costs.dabs_squared)
 
         dexpected = [(4, 4)]
         for dweight, expected in zip(actual_weights, dexpected):
@@ -243,7 +243,7 @@ class ModelTest(unittest.TestCase):
         sut.nn = nn
 
         (actual_weights, actual_biases, actual_activations) = \
-            sut.backprop(inputs.fourn, y, costs.dabs_squared)
+            sut.step(inputs.fourn, y, costs.dabs_squared)
 
         dexpected = [(4, 4), (4, 4)]
         for dweight, expected in zip(actual_weights, dexpected):
@@ -273,7 +273,7 @@ class ModelTest(unittest.TestCase):
         xprocessed = x.flatten()/np.amax(x)
 
         sut.sample(xprocessed, y, costs.abs_squared)
-        sut.backprop(xprocessed, y, costs.dabs_squared)
+        sut.step(xprocessed, y, costs.dabs_squared)
 
 
 
