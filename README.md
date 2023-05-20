@@ -54,3 +54,7 @@ if __name__ == '__main__':
     sut.eval(x_test[:pred_len], y_test[:pred_len])
 
 ```
+
+After running the example code, the loss curve and the accuracy curve will be plotted.
+
+<img width="441" alt="image" src="https://github.com/uatemycookie22/pocket-model/assets/67762761/03235f21-4882-45a0-bdf1-fbff48fea50d">
