@@ -10,15 +10,23 @@ class CostRT:
         self.ax = None
         self.line1 = None
         self.line2 = None
+        self.ax1 = None
+        self.ax2 = None
         self.timestamps = []
         self.start = None
 
     def plot(self):
         plt.ion()
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111)
-        self.line1, = self.ax.plot([], [], 'r-')  # Returns a tuple of line objects, thus the comma
-        self.line2, = self.ax.plot([], [], 'g-')  # Returns a tuple of line objects, thus the comma
+        self.fig, self.ax1 = plt.subplots()
+        self.ax2 = self.ax1.twinx()
+
+        self.line1 = self.ax1.plot([], [], 'r-')  # Returns a tuple of line objects, thus the comma
+        self.line2 = self.ax2.plot([], [], 'g-')  # Returns a tuple of line objects, thus the comma
+
+        self.ax1.set_xlabel('Time (seconds)')
+
+        self.ax1.set_ylabel('Cost (absolute)', color='r')
+        self.ax2.set_ylabel('Accuracy (absolute)', color='g')
 
         self.start = time.time()
 
@@ -28,16 +36,16 @@ class CostRT:
         self.timestamps.append(time.time() - self.start)
 
     def show(self):
-        self.line1.set_xdata(self.timestamps)
-        self.line1.set_ydata(self.costs)
-        self.line2.set_xdata(self.timestamps)
-        self.line2.set_ydata(self.accuracies)
-        self.ax.relim()
-        self.ax.autoscale_view()
+        self.ax1.plot(self.timestamps, self.costs, 'r-')
+        self.ax2.plot(self.timestamps, self.accuracies, 'g-')
+
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        plt.ylabel('Cost (absolute)')
-        plt.xlabel('Time (seconds)')
+        # plt.ylabel('Cost (absolute)')
+        # plt.xlabel('Time (seconds)')
         #plt.legend(loc="best")
         plt.show()
 
