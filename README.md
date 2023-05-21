@@ -1,3 +1,9 @@
+## Dependencies
+- Numpy
+- Tensorflow (purely for the keras datasets)
+- Matplotlib
+
+## Description
 Toy deep learning project to play with perceptrons. Can only optimize using SGD.
 
 Example code:
