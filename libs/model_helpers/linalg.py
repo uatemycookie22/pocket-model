@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 
 def dcost_dpreva(dc_db: np.ndarray, w: np.ndarray):
@@ -29,3 +30,16 @@ def avg_gradient(gradients: list[list[np.ndarray]]):
         avg_gradients.append(avg_gradient)
 
     return avg_gradients
+
+
+def convolve(m: np.ndarray, kernel: np.ndarray):
+    return scipy.signal.correlate(m, kernel, 'valid')
+
+def full_convolve(m: np.ndarray, kernel: np.ndarray):
+    return scipy.signal.correlate(m, kernel, 'full')
+
+def dconvolve(m: np.ndarray, dc_da: np.ndarray):
+    return scipy.signal.correlate(m, dc_da, 'valid')
+
+def matvec(m: np.ndarray, v: np.ndarray):
+    return m.dot(v)

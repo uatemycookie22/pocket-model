@@ -2,9 +2,11 @@ import unittest
 from libs.model.network import Network
 from fixtures import layers
 from libs.model_helpers import activators
+from libs.model import nodetemplate
 import numpy as np
 from fixtures import inputs
-
+from libs.model_helpers import linalg
+from libs.model.node_network import NodeNetwork
 
 class NetworkTest(unittest.TestCase):
     def test_append_randomized_layer(self):
@@ -117,6 +119,57 @@ class NetworkTest(unittest.TestCase):
         expected = layers.relu_1_1.activator(expected + biasr)
         actual = sut.feed_forward(inputr)
         self.assertEqual(expected, actual)
+
+    def test_node_feedforwardconv(self):
+        x = np.arange(25).reshape((5,5))
+        N = x.shape[0] * x.shape[1]
+
+        w1 = np.ones((3, 3))
+        w2 = np.ones((2, N))
+        w3 = np.ones((2, 2))
+
+        xPadded = np.pad(x, [(1, 1), (1, 1)])
+
+        z = linalg.convolve(xPadded, w1).flatten()
+        z = w2.dot(z)
+        z1 = w3.dot(z).sum()
+
+        layer1 = nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True)
+        layer2 = nodetemplate.ReLU(2)
+        layer3 = nodetemplate.ReLU(2)
+
+        z = layer1.f(x, kernel=w1)
+        z = layer2.f(z, w=w2)
+        z2 = layer3.f(z, w=w3).sum()
+
+        self.assertEqual(z1, z2)
+
+        W = [w1, w2, w3]
+        L: list[nodetemplate.NodeTemplate] = [layer1, layer2, layer3]
+
+        z = x
+        for w, l in zip(W, L):
+            z = l.f(z, w)
+        z = z.sum()
+
+        self.assertEqual(z, z2)
+
+        nn = NodeNetwork()
+
+        nn.append_layer(layer1, w1, np.zeros(25))
+        nn.append_layer(layer2, w2, np.zeros(2))
+        nn.append_layer(layer3, w3, np.zeros(2))
+
+        z = nn.feed_forward(x).sum()
+
+        self.assertEqual(z, z2)
+
+        nn = NodeNetwork()
+        for l in L:
+            nn.from_layer(l)
+
+        z = nn.feed_forward(x).sum()
+
 
 
 if __name__ == '__main__':
