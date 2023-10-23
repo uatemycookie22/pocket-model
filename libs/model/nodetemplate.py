@@ -68,7 +68,8 @@ class Conv2D(NodeTemplate):
         return activators.relu(z + b)
 
     def from_upstream(self, upstream: np.ndarray, x: np.ndarray, kernel: np.ndarray, b: np.ndarray):
-        xPadded = np.pad(x, [(self.P, self.P), (self.P, self.P)])
+        P = self.P
+        xPadded = np.pad(x, [(P, P), (P, P)])
         z = linalg.convolve(xPadded, kernel)
         z = z.flatten() if self.flatten_output is True else z
         z += b
@@ -83,7 +84,10 @@ class Conv2D(NodeTemplate):
         flipped_kernel = np.flip(kernel)
         dc_daL = linalg.full_convolve(flipped_kernel, dc_da_dz)
 
-        return dc_dw, dc_da_dz.flatten() if self.flatten_output is True else dc_da_dz, dc_daL
+        dc_da_dz = dc_da_dz.flatten() if self.flatten_output is True else dc_da_dz  # Correct shape
+        dc_daL = dc_daL[P:-P, P:-P]  # Remove padding
+
+        return dc_dw, dc_da_dz, dc_daL
 
     def f_shape(self, input_shape=None) -> tuple:
         input_shape = input_shape or self.input_shape
@@ -126,6 +130,41 @@ class Sigmoid(NodeTemplate):
         input_shape = input_shape or self.input_shape
         return self.shape.w_shape(input_shape)
 
+
+class Linear(NodeTemplate):
+    def __init__(self, current_n, c=1, **kwargs):
+        self.layer_name = 'linear'
+        self.current_n = current_n
+        self.shape = DenseShape(current_n)
+        self.c = c
+
+        super().__init__(
+            self.layer_name,
+            lambda x: activators.linear(x, c),
+            lambda x: activators.dlinear(x, c),
+            **kwargs
+        )
+
+    def f(self, x: np.ndarray, w: np.ndarray, b: np.ndarray):
+        z = linalg.matvec(w, x) + b
+        return self.fun(z)
+
+    def from_upstream(self, upstream: np.ndarray, x: np.ndarray, w: np.ndarray, b: np.ndarray):
+        z = linalg.matvec(w, x) + b
+
+        da_dz = self.fun_grad(z)
+        dc_da_dz = upstream * da_dz
+        dc_dw = linalg.dcost_dw(dc_da_dz, x)
+        dc_daL = linalg.dcost_dpreva(dc_da_dz, w)  # j X 1
+
+        return dc_dw, dc_da_dz, dc_daL
+
+    def f_shape(self, input_shape=None) -> tuple:
+        return self.shape.f_shape()
+
+    def w_shape(self, input_shape=None) -> tuple:
+        input_shape = input_shape or self.input_shape
+        return self.shape.w_shape(input_shape)
 
 
 class DenseShape:

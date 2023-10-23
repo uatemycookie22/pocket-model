@@ -411,7 +411,6 @@ class ModelTest(unittest.TestCase):
         # [0.90301752 0.4992944 ]
         sut.build([
             nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
-            nodetemplate.ReLU(2),
             nodetemplate.Sigmoid(2),
         ])
 
@@ -442,8 +441,8 @@ class ModelTest(unittest.TestCase):
             np.array( [0.90301752, 0.4992944 ])
         ]
 
-        h = 1 / 10**9
-        cost1 = sut.predict(x)
+        h = 1 / 10**10
+        cost1 = np.square(sut.predict(x))
 
         numericW = []
         for W in sut.nn.weights:
@@ -452,7 +451,7 @@ class ModelTest(unittest.TestCase):
                 tmp = W[idx]
                 W[idx] += h
 
-                cost2 = sut.predict(x)
+                cost2 = np.square(sut.predict(x))
 
                 dw = (cost2 - cost1) / h
                 dW[idx] = dw.sum()
@@ -468,7 +467,7 @@ class ModelTest(unittest.TestCase):
                 tmp = B[idx]
                 B[idx] += h
 
-                cost2 = sut.predict(x)
+                cost2 = np.square(sut.predict(x))
 
                 db = (cost2 - cost1) / h
                 dB[idx] = db.sum()
@@ -477,11 +476,13 @@ class ModelTest(unittest.TestCase):
 
             numericB.append(dB)
 
-        gradW, gradB, gradA = sut.step(x, np.array(0), lambda a, y: 1)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
 
         gradW.reverse()
 
         for numeric, auto in zip(numericW, gradW):
+            # print(numeric[abs(numeric) > 10**-3])
+            # print(auto[abs(auto) > 10 ** -3])
             self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
 
         gradB.reverse()
@@ -489,8 +490,84 @@ class ModelTest(unittest.TestCase):
         for numeric, auto in zip(numericB, gradB):
             self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
 
+    def test_backprop_conv_linear(self):
+        np.random.seed()
+        N = 5
+        x = np.arange(N**2).reshape((N, N))
 
+        sut = NodeModel()
 
+        sut.build([
+            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
+            nodetemplate.Linear(10),
+            nodetemplate.ReLU(10),
+            nodetemplate.Linear(3),
+            nodetemplate.Sigmoid(3),
+        ])
+
+        h = 1 / 10**10
+        cost1 = np.square(sut.predict(x))
+
+        numericW = []
+        for W in sut.nn.weights:
+            dW = np.zeros(W.shape)
+            for idx, weight in np.ndenumerate(W):
+                tmp = W[idx]
+                W[idx] += h
+
+                cost2 = np.square(sut.predict(x))
+
+                dw = (cost2 - cost1) / h
+                dW[idx] = dw.sum()
+
+                W[idx] = tmp
+
+            numericW.append(dW)
+
+        numericB = []
+        for B in sut.nn.biases:
+            dB = np.zeros(B.shape)
+            for idx, bias in np.ndenumerate(B):
+                tmp = B[idx]
+                B[idx] += h
+
+                cost2 = np.square(sut.predict(x))
+
+                db = (cost2 - cost1) / h
+                dB[idx] = db.sum()
+
+                B[idx] = tmp
+
+            numericB.append(dB)
+
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
+
+        gradW.reverse()
+
+        for numeric, auto in zip(numericW, gradW):
+            # print(numeric[abs(numeric) > 10**-3])
+            # print(auto[abs(auto) > 10 ** -3])
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+
+        gradB.reverse()
+
+        for numeric, auto in zip(numericB, gradB):
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+
+    def test_backprop_multiconv(self):
+        np.random.seed()
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N))
+
+        sut = NodeModel()
+
+        sut.build([
+            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape),
+            nodetemplate.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.ReLU(2),
+        ])
+
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
 
 
 if __name__ == '__main__':

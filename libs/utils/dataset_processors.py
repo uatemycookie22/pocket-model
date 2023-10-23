@@ -12,6 +12,9 @@ def flatten_2d(x: np.ndarray,  order='C') -> np.ndarray:
 def norm(x: np.ndarray) -> np.ndarray:
     return (x - x.mean())/x.std()
 
+def zero_center(x: np.ndarray) -> np.ndarray:
+    return (x - x.mean())
+
 
 def one_hot_encode(data, classes):
     # Create an empty matrix with zero values

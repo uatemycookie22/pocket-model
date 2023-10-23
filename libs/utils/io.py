@@ -19,9 +19,8 @@ def json_read_ndarray(input_file):
 
 
 def model_dump(output: dict, output_file: str):
-
-    with open(output_file, 'w') as f:
-        json.dump(output, f)
+    with open(output_file, 'w+') as f:
+        f.write(json.dumps(output))
 
 
 def model_read(input_file: str) -> dict:
