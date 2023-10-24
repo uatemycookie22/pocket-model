@@ -35,11 +35,43 @@ def avg_gradient(gradients: list[list[np.ndarray]]):
 def convolve(m: np.ndarray, kernel: np.ndarray):
     return scipy.signal.correlate(m, kernel, 'valid')
 
+
 def full_convolve(m: np.ndarray, kernel: np.ndarray):
     return scipy.signal.correlate(m, kernel, 'full')
+
 
 def dconvolve(m: np.ndarray, dc_da: np.ndarray):
     return scipy.signal.correlate(m, dc_da, 'valid')
 
+
 def matvec(m: np.ndarray, v: np.ndarray):
     return m.dot(v)
+
+
+def pad_to_axis(x: np.ndarray, P: int, axis=0) -> np.ndarray:
+    pad_width = ((P, P),) * (axis + 1)
+    D = len(x.shape)
+    empty_pad = (((0, 0),) * (D - axis))[:D]
+    pad_width = pad_width + empty_pad
+    return np.pad(x, pad_width[:D])
+
+
+def assert_shape(x: np.ndarray) -> np.ndarray:
+    if len(x.shape) <= 2:
+        return np.expand_dims(x, axis=2)
+    return x
+
+
+def reduce_shape(x: np.ndarray) -> np.ndarray:
+    if len(x.shape) > 2:
+        return np.squeeze(x, axis=2)
+    return x
+
+
+# Matches x to y and returns x
+def match_shape(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    if len(x.shape) > len(y.shape):
+        return reduce_shape(x)
+    if len(x.shape) < len(y.shape):
+        return assert_shape(x)
+    return x

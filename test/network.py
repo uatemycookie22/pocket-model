@@ -1,4 +1,6 @@
 import unittest
+
+import libs.model.templates.conv2d
 from libs.model.network import Network
 from fixtures import layers
 from libs.model_helpers import activators
@@ -134,7 +136,7 @@ class NetworkTest(unittest.TestCase):
         z = w2.dot(z)
         z1 = w3.dot(z).sum()
 
-        layer1 = nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True)
+        layer1 = libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True)
         layer2 = nodetemplate.ReLU(2)
         layer3 = nodetemplate.ReLU(2)
 

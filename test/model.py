@@ -1,4 +1,6 @@
 import unittest
+
+import libs.model.templates.conv2d
 from libs.model.model import Model
 from libs.model.network import Network
 from libs.model.node_model import NodeModel
@@ -11,6 +13,45 @@ from fixtures import inputs
 from libs.model_helpers import costs
 from libs.model import layertemplate
 from libs.utils import datasets
+
+def numeric_grad(sut: NodeModel, x):
+    h = 1 / 10 ** 10
+    cost1 = np.square(sut.predict(x))
+
+    numericW = []
+    for W in sut.nn.weights:
+        dW = np.zeros(W.shape)
+        for idx, weight in np.ndenumerate(W):
+            tmp = W[idx]
+            W[idx] += h
+
+            cost2 = np.square(sut.predict(x))
+
+            dw = (cost2 - cost1) / h
+            dW[idx] = dw.sum()
+
+            W[idx] = tmp
+
+        numericW.append(dW)
+
+    numericB = []
+    for B in sut.nn.biases:
+        dB = np.zeros(B.shape)
+        for idx, bias in np.ndenumerate(B):
+            tmp = B[idx]
+            B[idx] += h
+
+            cost2 = np.square(sut.predict(x))
+
+            db = (cost2 - cost1) / h
+            dB[idx] = db.sum()
+
+            B[idx] = tmp
+
+        numericB.append(dB)
+
+    return numericW, numericB
+
 
 class ModelTest(unittest.TestCase):
     def test_build(self):
@@ -283,7 +324,7 @@ class ModelTest(unittest.TestCase):
 
         sut = NodeModel()
         sut.build([
-            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
             nodetemplate.ReLU(2),
             nodetemplate.ReLU(2),
             nodetemplate.Sigmoid(2),
@@ -291,12 +332,15 @@ class ModelTest(unittest.TestCase):
 
         sut.predict(x)
 
+    def test_build_node_multiconv(self):
+        x = np.arange(25).reshape((5, 5))
+
         sut = NodeModel()
         sut.build([
-            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape),
-            nodetemplate.Conv2D(F=5, P=2),
-            nodetemplate.Conv2D(F=3, P=1),
-            nodetemplate.Conv2D(F=3, P=1, flatten_output=True),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=5, P=2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
             nodetemplate.ReLU(2),
             nodetemplate.ReLU(2),
         ])
@@ -404,21 +448,20 @@ class ModelTest(unittest.TestCase):
         x = np.arange(N**2).reshape((N, N))
 
         sut = NodeModel()
-        # [[ 0.16687128  1.2187011   0.51149002], [ 0.9165428  -1.15340098 -0.35499248], [ 0.32682511 -0.13196826 -0.80919688]]
-        # [[-0.96587943 -0.95681104 -0.18343715 -0.9363369   1.15871117 -0.25671794,  -0.3784069   0.7668324   0.26413521 -1.12501609 -0.12716973  0.16934818,   0.55445104  0.92922783 -1.02276463 -0.81728719 -0.04095724 -0.93718699,   0.38794503 -0.42924279  0.20760751  0.2761578  -0.97354242 -0.63260593,   0.6840177 ], [-0.04584017 -0.23713031  0.22691451 -0.14610676  0.4875827  -0.5654631,  -0.52868807 -0.7257997  -0.96755309 -1.22175077  1.17440455  0.53355628,  -1.00281615  0.55518733  0.30208984 -0.68935598 -0.05261074  0.15993541,   0.77265757  1.16255869 -0.56024119 -1.13546629  0.07811296  0.83475526,  -0.58973099]]
 
-        # [ 0.11756599 -0.40350258  0.89676891 -0.86401703 -0.49582396 -0.80732601, -0.90323551  0.5797623   1.10315774  0.4460182   0.79053922  0.23249696, -0.28806594  1.11828473  0.39207562 -0.82084845  1.01026932  1.21443486, -1.00338725  0.53954444 -1.12271857 -1.2089594  -0.42787867 -1.10492912,  0.72564957]
-        # [0.90301752 0.4992944 ]
         sut.build([
-            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
             nodetemplate.Sigmoid(2),
         ])
 
         sut.nn.weights = [
-            np.array([
-                [ 0.16687128,  1.2187011,   0.51149002],
-                [ 0.9165428,  -1.15340098, -0.35499248],
-                [ 0.32682511, -0.13196826, -0.80919688]]),
+            np.array(
+                [
+                [ [[0.16687128]], [ [1.2187011]],  [ [0.51149002]]],
+                [ [[0.9165428]], [[ -1.15340098]], [[-0.35499248]]],
+                [ [[0.32682511]], [[-0.13196826]], [[-0.80919688]]]
+                ]
+            ),
 
             np.array(
                 [[-0.96587943, -0.95681104, -0.18343715, -0.9363369,   1.15871117, -0.25671794, -0.3784069,   0.7668324,
@@ -441,49 +484,20 @@ class ModelTest(unittest.TestCase):
             np.array( [0.90301752, 0.4992944 ])
         ]
 
-        h = 1 / 10**10
-        cost1 = np.square(sut.predict(x))
-
-        numericW = []
-        for W in sut.nn.weights:
-            dW = np.zeros(W.shape)
-            for idx, weight in np.ndenumerate(W):
-                tmp = W[idx]
-                W[idx] += h
-
-                cost2 = np.square(sut.predict(x))
-
-                dw = (cost2 - cost1) / h
-                dW[idx] = dw.sum()
-
-                W[idx] = tmp
-
-            numericW.append(dW)
-
-        numericB = []
-        for B in sut.nn.biases:
-            dB = np.zeros(B.shape)
-            for idx, bias in np.ndenumerate(B):
-                tmp = B[idx]
-                B[idx] += h
-
-                cost2 = np.square(sut.predict(x))
-
-                db = (cost2 - cost1) / h
-                dB[idx] = db.sum()
-
-                B[idx] = tmp
-
-            numericB.append(dB)
+        numericW, numericB = numeric_grad(sut, x)
 
         gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
 
         gradW.reverse()
 
+        i = 0
         for numeric, auto in zip(numericW, gradW):
+            # print(f"Numeric:")
             # print(numeric[abs(numeric) > 10**-3])
+            # print(f"Auto:")
             # print(auto[abs(auto) > 10 ** -3])
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3, msg=f"Layer {i}")
+            i += 1
 
         gradB.reverse()
 
@@ -498,47 +512,14 @@ class ModelTest(unittest.TestCase):
         sut = NodeModel()
 
         sut.build([
-            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
             nodetemplate.Linear(10),
             nodetemplate.ReLU(10),
             nodetemplate.Linear(3),
             nodetemplate.Sigmoid(3),
         ])
 
-        h = 1 / 10**10
-        cost1 = np.square(sut.predict(x))
-
-        numericW = []
-        for W in sut.nn.weights:
-            dW = np.zeros(W.shape)
-            for idx, weight in np.ndenumerate(W):
-                tmp = W[idx]
-                W[idx] += h
-
-                cost2 = np.square(sut.predict(x))
-
-                dw = (cost2 - cost1) / h
-                dW[idx] = dw.sum()
-
-                W[idx] = tmp
-
-            numericW.append(dW)
-
-        numericB = []
-        for B in sut.nn.biases:
-            dB = np.zeros(B.shape)
-            for idx, bias in np.ndenumerate(B):
-                tmp = B[idx]
-                B[idx] += h
-
-                cost2 = np.square(sut.predict(x))
-
-                db = (cost2 - cost1) / h
-                dB[idx] = db.sum()
-
-                B[idx] = tmp
-
-            numericB.append(dB)
+        numericW, numericB = numeric_grad(sut, x)
 
         gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
 
@@ -562,12 +543,57 @@ class ModelTest(unittest.TestCase):
         sut = NodeModel()
 
         sut.build([
-            nodetemplate.Conv2D(F=3, P=1, input_shape=x.shape),
-            nodetemplate.Conv2D(F=3, P=1, flatten_output=True),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=5, P=2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.ReLU(2),
             nodetemplate.ReLU(2),
         ])
 
+        numericW, numericB = numeric_grad(sut, x)
+
         gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
+
+        gradW.reverse()
+
+        for numeric, auto in zip(numericW, gradW):
+            # print(numeric[abs(numeric) > 10**-3])
+            # print(auto[abs(auto) > 10 ** -3])
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+
+        gradB.reverse()
+
+        for numeric, auto in zip(numericB, gradB):
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+
+    def test_backprop_multifilters(self):
+        np.random.seed()
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N))
+
+        sut = NodeModel()
+
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, K=2, P=1, input_shape=x.shape),
+            nodetemplate.ReLU(2),
+        ])
+
+        numericW, numericB = numeric_grad(sut, x)
+
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
+
+        gradW.reverse()
+
+        for numeric, auto in zip(numericW, gradW):
+            # print(numeric[abs(numeric) > 10**-3])
+            # print(auto[abs(auto) > 10 ** -3])
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+
+        gradB.reverse()
+
+        for numeric, auto in zip(numericB, gradB):
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
 
 
 if __name__ == '__main__':
