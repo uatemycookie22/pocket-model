@@ -21,16 +21,18 @@ class NodeNetwork:
         if len(self.layer_templates) > 0:
             w_shape = layer.w_shape(self.f_shapes[-1])
             f_shape = layer.f_shape(self.f_shapes[-1])
+            b_shape = layer.b_shape(self.f_shapes[-1])
         else:
             w_shape = layer.w_shape()
             f_shape = layer.f_shape()
+            b_shape = layer.b_shape()
 
         self.f_shapes.append(f_shape)
 
         scale = 1 / max(1., (2 + 2) / 2.)
         limit = math.sqrt(3.0 * scale)
         weights = np.random.uniform(-limit, limit, size=w_shape)
-        biases = np.random.uniform(-limit, limit, size=f_shape)
+        biases = np.random.uniform(-limit, limit, size=b_shape)
 
         self.append_layer(
             layer,
