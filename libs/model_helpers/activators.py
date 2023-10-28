@@ -6,9 +6,7 @@ def relu(x: np.ndarray) -> np.ndarray:
 
 
 def drelu(x: np.ndarray) -> np.ndarray:
-    x[x <= 0] = 0
-    x[x > 0] = 1
-    return x
+    return np.heaviside(x, 1)
 
 
 def leaky_relu(x: np.ndarray, alpha=0) -> np.ndarray:
