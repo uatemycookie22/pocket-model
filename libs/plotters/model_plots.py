@@ -1,5 +1,6 @@
 import time
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class CostRT:
@@ -147,4 +148,87 @@ class Eval:
             axes[i].axis('off')
 
         plt.tight_layout()
+        plt.show()
+
+
+class ActivationLog:
+    def __init__(self):
+        self.activations = []
+        self.fig = None
+        self.ax = None
+        self.line1 = None
+        self.line2 = None
+        self.ax1 = None
+        self.ax2 = None
+
+    def plot(self):
+
+        # Create a line plot
+        plt.plot(np.arange(len(self.activations)), self.activations)
+
+        # Add labels and title
+        plt.xlabel('Layer')
+        plt.ylabel('Mean activation')
+        plt.title('Mean activation')
+
+        # Display the plot
+        plt.show()
+
+    def add(self, x: list[np.ndarray]):
+        for layer in x:
+            gt_zero = abs(layer[abs(layer) > 10**-3])
+            if (len(gt_zero) > 0):
+                self.activations.append(gt_zero.mean())
+            else:
+                self.activations.append(0)
+
+    def show(self):
+
+        # self.fig.canvas.draw()
+        # self.fig.canvas.flush_events()
+        plt.ylabel('Mean sum')
+        plt.xlabel('Layer')
+        plt.show()
+
+class WeightGradLog:
+    def __init__(self):
+        self.w_grad = []
+        self.fig = None
+        self.ax = None
+        self.line1 = None
+        self.line2 = None
+        self.ax1 = None
+        self.ax2 = None
+
+    def plot(self):
+
+        # Create a line plot
+        print(len(self.w_grad))
+        plt.plot(range(len(self.w_grad)), self.w_grad)
+
+        # Add labels and title
+        plt.xlabel('Layer')
+        plt.ylabel('Mean w grad')
+        plt.title('Mean w grad')
+
+        # Display the plot
+        plt.show()
+
+    def add(self, x: list[np.ndarray]):
+        x = x.copy()
+        x.reverse()
+        for layer in x:
+            gt_zero = abs(layer[abs(layer) > 10**-3])
+            if (len(gt_zero) > 0):
+                self.w_grad.append(gt_zero.mean())
+            else:
+                self.w_grad.append(0)
+        # self.w_grad = [(layer[layer > 0]).mean() for layer in x]
+
+    def show(self):
+
+        # self.fig.canvas.draw()
+        # self.fig.canvas.flush_events()
+        plt.ylabel('Mean sum')
+        plt.xlabel('Layer')
         plt.show()
