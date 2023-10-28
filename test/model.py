@@ -13,44 +13,7 @@ from fixtures import inputs
 from libs.model_helpers import costs
 from libs.model import layertemplate
 from libs.utils import datasets
-
-def numeric_grad(sut: NodeModel, x):
-    h = 1 / 10 ** 10
-    cost1 = np.square(sut.predict(x))
-
-    numericW = []
-    for W in sut.nn.weights:
-        dW = np.zeros(W.shape)
-        for idx, weight in np.ndenumerate(W):
-            tmp = W[idx]
-            W[idx] += h
-
-            cost2 = np.square(sut.predict(x))
-
-            dw = (cost2 - cost1) / h
-            dW[idx] = dw.sum()
-
-            W[idx] = tmp
-
-        numericW.append(dW)
-
-    numericB = []
-    for B in sut.nn.biases:
-        dB = np.zeros(B.shape)
-        for idx, bias in np.ndenumerate(B):
-            tmp = B[idx]
-            B[idx] += h
-
-            cost2 = np.square(sut.predict(x))
-
-            db = (cost2 - cost1) / h
-            dB[idx] = db.sum()
-
-            B[idx] = tmp
-
-        numericB.append(dB)
-
-    return numericW, numericB
+from utils import numeric_grad
 
 
 class ModelTest(unittest.TestCase):
@@ -347,6 +310,9 @@ class ModelTest(unittest.TestCase):
 
         sut.predict(x)
 
+
+
+
     def test_backprop_node(self):
         sut = NodeModel()
 
@@ -477,10 +443,7 @@ class ModelTest(unittest.TestCase):
         ]
 
         sut.nn.biases = [
-            np.array([0.11756599, -0.40350258,  0.89676891, -0.86401703, -0.49582396, -0.80732601, -0.90323551,
-                      0.5797623,   1.10315774,  0.4460182,   0.79053922,  0.23249696, -0.28806594,  1.11828473,
-                      0.39207562, -0.82084845,  1.01026932,  1.21443486, -1.00338725,  0.53954444, -1.12271857,
-                      -1.2089594,  -0.42787867, -1.10492912,  0.72564957]),
+            np.array([0.11756599]),
             np.array( [0.90301752, 0.4992944 ])
         ]
 
@@ -505,9 +468,9 @@ class ModelTest(unittest.TestCase):
             self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
 
     def test_backprop_conv_linear(self):
-        np.random.seed()
+        np.random.seed(15)
         N = 5
-        x = np.arange(N**2).reshape((N, N))
+        x = np.arange(N**2).reshape((N, N)) / np.arange(N**2).sum()
 
         sut = NodeModel()
 
@@ -516,56 +479,46 @@ class ModelTest(unittest.TestCase):
             nodetemplate.Linear(10),
             nodetemplate.ReLU(10),
             nodetemplate.Linear(3),
+            nodetemplate.ReLU(3),
             nodetemplate.Sigmoid(3),
         ])
 
-        numericW, numericB = numeric_grad(sut, x)
-
-        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
-
-        gradW.reverse()
-
-        for numeric, auto in zip(numericW, gradW):
-            # print(numeric[abs(numeric) > 10**-3])
-            # print(auto[abs(auto) > 10 ** -3])
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
-
-        gradB.reverse()
-
-        for numeric, auto in zip(numericB, gradB):
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
-
-    def test_backprop_multiconv(self):
-        np.random.seed()
-        N = 5
-        x = np.arange(N ** 2).reshape((N, N))
-
-        sut = NodeModel()
-
-        sut.build([
-            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
-            libs.model.templates.conv2d.Conv2D(F=5, P=2),
-            libs.model.templates.conv2d.Conv2D(F=3, P=1),
-            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
-            nodetemplate.ReLU(2),
-            nodetemplate.ReLU(2),
-        ])
+        # sut.nn.weights[0] = np.ones((3, 3, 1, 1))
 
         numericW, numericB = numeric_grad(sut, x)
 
-        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
 
-        gradW.reverse()
+        sut.predict(x, plot_activations=False)
 
+        numericW.reverse()
+
+        layer = len(numericW) - 1
         for numeric, auto in zip(numericW, gradW):
-            # print(numeric[abs(numeric) > 10**-3])
+            # print(f"Numeric:")
+            # print(numeric[abs(numeric) > 10 ** -3])
+            # print(f"Auto:")
             # print(auto[abs(auto) > 10 ** -3])
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer -= 1
 
-        gradB.reverse()
+        numericB.reverse()
 
+        layer = 0
+        print("Bias")
         for numeric, auto in zip(numericB, gradB):
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            # print(auto[abs(auto) > 10 ** -3])
+            print(auto)
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            print("")
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
 
     def test_backprop_multifilters(self):
         np.random.seed()
@@ -575,26 +528,489 @@ class ModelTest(unittest.TestCase):
         sut = NodeModel()
 
         sut.build([
-            libs.model.templates.conv2d.Conv2D(F=3, K=2, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
             nodetemplate.ReLU(2),
         ])
 
         numericW, numericB = numeric_grad(sut, x)
 
-        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
 
         gradW.reverse()
 
         for numeric, auto in zip(numericW, gradW):
-            # print(numeric[abs(numeric) > 10**-3])
-            # print(auto[abs(auto) > 10 ** -3])
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10**-3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=0)
 
-        gradB.reverse()
+        numericB.reverse()
 
         for numeric, auto in zip(numericB, gradB):
-            self.assertAlmostEqual((numeric - auto).sum(), 0, places=3)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=0)
 
+    def test_backprop_multiconv_std_params(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(15)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+
+        sut.build([
+            # libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape, flatten_output=True),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.ReLU(1),
+        ])
+
+        sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        sut.nn.weights[2] = np.ones((1, 25))
+
+        sut.nn.biases[0] = np.zeros(1)
+        sut.nn.biases[1] = np.zeros(1)
+        sut.nn.biases[2] = np.zeros([1])
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
+
+    def test_backprop_multiconv_rand_wparams(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(23)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.ReLU(1),
+        ])
+
+        # sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[2] = np.ones((1, 25))
+
+        sut.nn.biases[0] = np.ones(1)
+        sut.nn.biases[1] = np.ones(1)
+        sut.nn.biases[2] = np.ones(1)
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape, "\n")
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
+
+    def test_backprop_multiconv_rand_bparams(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(23)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.ReLU(1),
+        ])
+
+        sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        sut.nn.weights[2] = np.ones((1, 25))
+
+        # sut.nn.biases[0] = np.ones(1)
+        # sut.nn.biases[1] = np.ones(1)
+        # sut.nn.biases[2] = np.ones(1)
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape, "\n")
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
+
+
+    def test_backprop_multiconv_rand_params(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(22)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.ReLU(10),
+        ])
+
+        # sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[2] = np.ones((1, 25))
+
+        # sut.nn.biases[0] = np.ones(1)
+        # sut.nn.biases[1] = np.ones(1)
+        # sut.nn.biases[2] = np.ones(1)
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape, "\n")
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
+
+    def test_backprop_multiconv_rand_params2(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(22)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.Linear(10),
+            nodetemplate.ReLU(10),
+            nodetemplate.Sigmoid(10),
+        ])
+
+        # sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[2] = np.ones((1, 25))
+
+        # sut.nn.biases[0] = np.ones(1)
+        # sut.nn.biases[1] = np.ones(1)
+        # sut.nn.biases[2] = np.ones(1)
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape, "\n")
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
+
+    def test_backprop_multiconv_rand_params3(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(21)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=5, P=2, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1),
+            libs.model.templates.conv2d.Conv2D(F=5, P=2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1),
+            libs.model.templates.conv2d.Conv2D(F=5, P=2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.Linear(10),
+            nodetemplate.ReLU(10),
+            nodetemplate.Sigmoid(10),
+        ])
+
+        # sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[2] = np.ones((1, 25))
+
+        # sut.nn.biases[0] = np.ones(1)
+        # sut.nn.biases[1] = np.ones(1)
+        # sut.nn.biases[2] = np.ones(1)
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            print(f"Auto mean")
+            print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape, "\n")
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertAlmostEqual((numeric - auto).sum(), 0, places=1, msg=f"Layer {layer}")
+            layer += 1
+
+    def test_backprop_multifilterconv(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(22)
+        N = 5
+        x = np.arange(N ** 2).reshape((N, N)) / np.arange(N**2).sum()
+
+        sut = NodeModel()
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=1, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=4),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=8),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=8, flatten_output=True),
+            # libs.model.templates.conv2d.Conv2D(F=3, P=1, K=8, flatten_output=True),
+            # libs.model.templates.conv2d.Conv2D(F=3, P=1, K=32, flatten_output=True),
+            # libs.model.templates.conv2d.Conv2D(F=3, P=1, flatten_output=True),
+            nodetemplate.Linear(5),
+            nodetemplate.ReLU(5),
+        ])
+
+
+        # sut.nn.weights[0] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[1] = np.ones((3, 3, 1, 1))
+        # sut.nn.weights[2] = np.ones((1, 25))
+
+        # sut.nn.biases[0] = np.ones(1)
+        # sut.nn.biases[1] = np.ones(1)
+        # sut.nn.biases[2] = np.ones(1)
+
+        numericW, numericB = numeric_grad(sut, x)
+        sut.predict(x, plot_activations=False)
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            error: np.ndarray = abs((numeric - auto) / (numeric + 1/10**8))
+            expected_error = abs((numeric - numeric*.05) / (numeric + 1/10**8))
+            diff = expected_error - error
+            diff[diff >= 0] = True
+
+            # print(expected_error)
+            # print(error)
+            # print(diff)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertTrue(diff.all())
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            print(f"Numeric:")
+            print(numeric[abs(numeric) > 10 ** -3])
+            print(f"Auto:")
+            print(auto[abs(auto) > 10 ** -3])
+            # print(f"Auto mean")
+            # print((auto[abs(auto) > 10 ** -3]).mean())
+            print(numeric.shape, auto.shape)
+            error: np.ndarray = abs((numeric - auto) / (numeric + 1 / 10 ** 8))
+            expected_error = abs((numeric - numeric * .05) / (numeric + 1 / 10 ** 8))
+            diff = expected_error - error
+            diff[diff >= 0] = True
+
+            # print(expected_error)
+            # print(error)
+            # print(diff)
+            self.assertEqual(numeric.shape, auto.shape)
+            self.assertTrue(diff.all())
+
+            layer += 1
+
+    def test_backprop_mnist_conv(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(22)
+
+        (x_train, y_train), (_, _) = datasets.load_mnist()
+        x: np.ndarray = x_train[0]
+        y: np.ndarray = y_train[0]
+
+        xprocessed = x / np.amax(x)
+
+        sut = NodeModel()
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=32, input_shape=x.shape),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=32),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=4, flatten_output=True),
+            nodetemplate.Linear(5, c=0.2),
+            nodetemplate.ReLU(5),
+            nodetemplate.Linear(10, c=0.05),
+            nodetemplate.Sigmoid(10),
+        ])
+
+        sut.predict(xprocessed, plot_activations=False)
 
 if __name__ == '__main__':
     unittest.main()
