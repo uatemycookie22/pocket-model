@@ -1,6 +1,7 @@
-from libs.model.model import read
+from libs.model.node_model import read
 from libs.model.node_model import NodeModel
-from libs.model.nodetemplate import ReLU, Conv2D, Sigmoid, Linear
+from libs.model.nodetemplate import ReLU, Sigmoid, Linear
+from libs.model.templates.conv2d import Conv2D
 import numpy as np
 from libs.utils import datasets, dataset_processors as dp
 
@@ -17,7 +18,7 @@ if __name__ == '__main__':
     # Data selection
     (x_train, y_train), (x_test, y_test) = datasets.load_mnist()
 
-    train_size = 12 * 10 * 1
+    train_size = 12 * 100 * 1
     x_train = x_train[:train_size]
     y_train = y_train[:train_size]
 
@@ -30,15 +31,14 @@ if __name__ == '__main__':
     sut: NodeModel | None = None
 
     # Model construction
-    postfix = '10-22|20:28'
+    postfix = '10_28_1605'
 
     if READ_MODEL:
-        pass
-        # sut = read(f'models/model.json')
+        sut = read(f'models/model_{postfix}.json')
     else:
         sut = NodeModel()
         sut.build([
-            Conv2D(F=3, P=1, flatten_output=True, input_shape=x_shape),
+            Conv2D(F=3, P=1, K=4, input_shape=x_shape, flatten_output=True),
             Linear(24, c=0.2),
             ReLU(24),
             Linear(10, c=0.05),
