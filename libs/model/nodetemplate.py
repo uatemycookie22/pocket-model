@@ -19,6 +19,10 @@ class NodeTemplate:
         input_shape = input_shape or self.input_shape
         return input_shape
 
+    def b_shape(self, input_shape=None) -> tuple:
+        input_shape = input_shape or self.input_shape
+        return self.f_shape(input_shape)
+
 
 class ReLU(NodeTemplate):
     def __init__(self, current_n, **kwargs):
