@@ -8,7 +8,7 @@ from libs.model.network import Network
 from libs.model.node_network import NodeNetwork
 from libs.model_helpers import linalg
 from libs.model_helpers import costs
-from libs.plotters.model_plots import CostRT, Eval
+from libs.plotters.model_plots import CostRT, Eval, ActivationLog, WeightGradLog
 from libs.utils import io
 from datetime import datetime
 
@@ -19,6 +19,8 @@ class NodeModel:
         self.costf = costf
         self.dcostf = dcostf
         self._built = False
+        self.activationLog = ActivationLog()
+        self.w_gradLog = WeightGradLog()
 
     # Given a list of layers (n nodes for layer L and activator),
     # build randomized neural network
@@ -29,14 +31,20 @@ class NodeModel:
 
         self._built = True
 
-    def predict(self, x):
-        return self.nn.feed_forward(x)
+    def predict(self, x, plot_activations=False):
+        activations = self.nn.feed_forwards(x)
+
+        if plot_activations:
+            self.activationLog.add(activations)
+            self.activationLog.plot()
+
+        return activations[-1]
 
     def sample(self, input: np.ndarray, label: np.ndarray, cost_func):
         a = self.nn.feed_forward(input)
         return np.sum(cost_func(a, label))
 
-    def step(self, input: np.ndarray, label: np.ndarray, dcost_func):
+    def step(self, input: np.ndarray, label: np.ndarray, dcost_func, plot_w_grad=False):
         activations = self.nn.feed_forwards(input)
 
         dc_dw = []
@@ -58,6 +66,10 @@ class NodeModel:
             dc_dw.append(dc_dwL)
             dc_da.append(dc_daL)
             dc_db.append(dc_dbL)
+
+        if plot_w_grad:
+            self.w_gradLog.add(dc_dw)
+            self.w_gradLog.plot()
 
         return dc_dw, dc_db, dc_da
 
@@ -81,7 +93,8 @@ class NodeModel:
         return avg_weight_gradients, avg_bias_gradients
 
     def train(self, train_x: np.ndarray, train_y: np.ndarray,
-              epochs=1, m=12, l=0.003, plot_cost=False, plot_accuracy=False, quit_threshold=0.01):
+              epochs=1, m=12, l=0.003, plot_cost=False, plot_accuracy=False, quit_threshold=0.01,
+              plot_w_grad=False):
         plotter = CostRT()
 
         plotter.plot()
@@ -120,6 +133,9 @@ class NodeModel:
                           f"Batch rt: {'%0.2f' % batch_rt}")
                 if plot_cost:
                     plotter.add(stats['average_cost'], stats['accuracy'])
+
+                if plot_w_grad:
+                    self.w_gradLog.add(w_gradients)
 
         if plot_cost:
             plotter.show()
