@@ -1,9 +1,11 @@
 import numpy as np
 import scipy
+from numpy import ndarray
 
-
-def dcost_dpreva(dc_db: np.ndarray, w: np.ndarray):
+def dcost_preva_deprecated(dc_db: np.ndarray, w: np.ndarray):
     return np.asarray([np.dot(np.array(w.T[k, :]), dc_db) for k in range(w.shape[1])])
+def dcost_dpreva(dc_db: np.ndarray, w: np.ndarray):
+    return np.einsum('i, ij -> j', dc_db, w)
 
 
 def dcost_dw(dc_da_dz: np.ndarray, preva: np.ndarray):
@@ -75,3 +77,19 @@ def match_shape(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     if len(x.shape) < len(y.shape):
         return assert_shape(x)
     return x
+
+
+def shuffle(x: np.ndarray, y: np.ndarray) -> tuple[ndarray, ndarray]:
+    data_train = list(zip(x, y))
+    np.random.shuffle(data_train)
+    train_x, train_y = zip(*data_train)
+    train_x, train_y = np.array(train_x), np.array(train_y)
+
+    return train_x, train_y
+
+def abs_mean(x: np.ndarray):
+    gt_zero: np.ndarray = abs(x[abs(x) > 10 ** -3])
+    if (len(gt_zero) > 0):
+        return gt_zero.mean()
+    else:
+        return np.array([0])

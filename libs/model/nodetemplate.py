@@ -51,7 +51,7 @@ class ReLU(NodeTemplate):
 
     def w_shape(self, input_shape=None) -> tuple:
         input_shape = input_shape or self.input_shape
-        return self.shape.w_shape(input_shape)
+        return self.shape.w_shape(np.prod(input_shape))
 
 
 class Sigmoid(NodeTemplate):
@@ -81,7 +81,7 @@ class Sigmoid(NodeTemplate):
 
     def w_shape(self, input_shape=None) -> tuple:
         input_shape = input_shape or self.input_shape
-        return self.shape.w_shape(input_shape)
+        return self.shape.w_shape(np.prod(input_shape))
 
 
 class Linear(NodeTemplate):

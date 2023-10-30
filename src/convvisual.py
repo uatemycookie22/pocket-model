@@ -31,36 +31,26 @@ if __name__ == '__main__':
     sut: NodeModel | None = None
 
     # Model construction
-    postfix = '10_30_0056'
+    postfix = '10_29_0250'
 
     if READ_MODEL:
         sut = read(f'models/model_{postfix}.json')
     else:
         sut = NodeModel()
         sut.build([
-            Conv2D(F=5, P=2, K=8, input_shape=x_shape),
-            Conv2D(F=5, P=2, K=16, flatten_output=True),
-            # Conv2D(F=5, P=2, K=16, input_shape=x_shape, flatten_output=True),
+            # Conv2D(F=5, P=2, K=8, input_shape=x_shape),
+            # Conv2D(F=5, P=2, K=16, flatten_output=True),
+            Conv2D(F=5, P=2, K=16, input_shape=x_shape, flatten_output=True),
             Linear(24, c=0.5),
             ReLU(24),
-            Linear(10, c=0.05),
+            Linear(10, c=0.5),
             Sigmoid(10),
         ])
 
     x_test = dp.zero_center(dp.grayscale(x_test))
     y_test = dp.one_hot_encode(y_test, 10)
 
-    # Accuracy before
-    pred_len = 100
-    sut.eval(x_test[:pred_len], y_test[:pred_len])
-
-    print("Start")
-    sut.train(x_train, y_train, m=12 * 2, l=1, plot_cost=False, epochs=1)
-
-    # Accuracy after
-    pred_len = 1000
-    sut.eval(x_test[:pred_len], y_test[:pred_len])
+    sut.predict(x_train[0], plot_activations=True)
 
 
-    if SAVE_MODEL:
-        sut.save('./models/model', postfix_timestamp=True)
+    # sut.train(x_train, y_train, m=12 * 2, l=10, plot_cost=True, epochs=1)

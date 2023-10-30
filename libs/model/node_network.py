@@ -30,9 +30,11 @@ class NodeNetwork:
         self.f_shapes.append(f_shape)
 
         scale = 1 / max(1., (2 + 2) / 2.)
-        limit = math.sqrt(3.0 * scale)
+        limit = math.sqrt(0.01 * scale)
         weights = np.random.uniform(-limit, limit, size=w_shape)
         biases = np.random.uniform(-limit, limit, size=b_shape)
+
+        weights = np.random.randn(*w_shape) / np.sqrt(w_shape[1] / 2)
 
         self.append_layer(
             layer,

@@ -1,6 +1,7 @@
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import libs.model_helpers.linalg as linalg
 
 
 class CostRT:
@@ -164,7 +165,7 @@ class ActivationLog:
     def plot(self):
 
         # Create a line plot
-        plt.plot(np.arange(len(self.activations)), self.activations)
+        plt.plot(np.arange(len(self.activations)), [linalg.abs_mean(layer) for layer in self.activations])
 
         # Add labels and title
         plt.xlabel('Layer')
@@ -174,13 +175,29 @@ class ActivationLog:
         # Display the plot
         plt.show()
 
+        # Stdev
+        plt.plot(np.arange(len(self.activations)), [np.std(layer) for layer in self.activations])
+
+        # Add labels and title
+        plt.xlabel('Layer')
+        plt.ylabel('Stdev activation')
+        plt.title('Stdev activation')
+
+        # Display the plot
+        plt.show()
+
+        return
+
+        for i, layer in enumerate(self.activations):
+            plt.hist(layer)
+            plt.xlabel('Activation')
+            plt.ylabel('Count')
+            plt.title(f"Layer {i}")
+            plt.show()
+
+
     def add(self, x: list[np.ndarray]):
-        for layer in x:
-            gt_zero = abs(layer[abs(layer) > 10**-3])
-            if (len(gt_zero) > 0):
-                self.activations.append(gt_zero.mean())
-            else:
-                self.activations.append(0)
+        self.activations = x.copy()
 
     def show(self):
 

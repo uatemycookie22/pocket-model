@@ -101,11 +101,7 @@ class NodeModel:
         train_len = len(train_y)
 
         for epoch in range(epochs):
-            # Shuffle
-            data_train = list(zip(train_x, train_y))
-            np.random.shuffle(data_train)
-            train_x, train_y = zip(*data_train)
-            train_x, train_y = np.array(train_x), np.array(train_y)
+            train_x, train_y = linalg.shuffle(train_x, train_y)
 
             for i in range(0, train_len, m):
                 batch_start = time.time()
@@ -122,17 +118,18 @@ class NodeModel:
                     self.nn.biases[L] -= b_gradient[L] * (l / m)
 
                 # Evaluation
-                stats = self.eval(train_x[:100], train_y[:100], summary=False)
-
-                if (i // m) % max(1, ((train_len * 10) // (100 * m))) == 0 and i > 0:
-                    progress = "%0.2f" % (100 * i / train_len)
-                    print(f"Epoch: {epoch}\n"
-                          f"Progress: {progress}%\n"
-                          f"Train cost: {'%0.2f' % (stats['average_cost'])}\n"
-                          f"Train accuracy: {'%0.2f' % stats['accuracy']}\n"
-                          f"Batch rt: {'%0.2f' % batch_rt}")
                 if plot_cost:
-                    plotter.add(stats['average_cost'], stats['accuracy'])
+
+                    stats = self.eval(train_x[:27], train_y[:27], summary=False)
+
+                    if (i // m) % max(1, ((train_len * 10) // (100 * m))) == 0 and i > 0:
+                        progress = "%0.2f" % (100 * i / train_len)
+                        print(f"Epoch: {epoch}\n"
+                              f"Progress: {progress}%\n"
+                              f"Train cost: {'%0.2f' % (stats['average_cost'])}\n"
+                              f"Train accuracy: {'%0.2f' % stats['accuracy']}\n"
+                              f"Batch rt: {'%0.2f' % batch_rt}")
+                        plotter.add(stats['average_cost'], stats['accuracy'])
 
                 if plot_w_grad:
                     self.w_gradLog.add(w_gradients)
