@@ -1,6 +1,6 @@
 from libs.model.node_model import read
 from libs.model.node_model import NodeModel
-from libs.model.nodetemplate import ReLU, Sigmoid, Linear
+from libs.model.nodetemplate import ReLU, Sigmoid, Linear, Tanh
 from libs.model.templates.conv2d import Conv2D
 import numpy as np
 from libs.utils import datasets, dataset_processors as dp
@@ -39,18 +39,25 @@ if __name__ == '__main__':
         sut = NodeModel()
         sut.build([
             # Conv2D(F=5, P=2, K=8, input_shape=x_shape),
+            # Conv2D(F=5, P=2, K=8),
             # Conv2D(F=5, P=2, K=16, flatten_output=True),
             Conv2D(F=5, P=2, K=16, input_shape=x_shape, flatten_output=True),
-            Linear(24, c=0.5),
-            ReLU(24),
-            Linear(10, c=0.5),
+            # Linear(240, c=1, input_shape=x_flat_n),
+            # ReLU(240),
+            # Linear(100, c=1),
+            # ReLU(100),
+            # Linear(100, c=1),
+            # ReLU(100),
+            Linear(100, c=1),
+            ReLU(100),
+            Linear(100, c=1),
             Sigmoid(10),
         ])
 
     x_test = dp.zero_center(dp.grayscale(x_test))
     y_test = dp.one_hot_encode(y_test, 10)
 
-    sut.predict(x_train[0], plot_activations=True)
+    sut.predict(np.random.randn(28, 28), plot_activations=True)
 
 
     # sut.train(x_train, y_train, m=12 * 2, l=10, plot_cost=True, epochs=1)

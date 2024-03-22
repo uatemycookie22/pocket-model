@@ -40,3 +40,30 @@ def numeric_grad(sut: NodeModel, x):
         numericB.append(dB)
 
     return numericW, numericB
+
+
+def cmp_arr(x: np.ndarray, y: np.ndarray, error=0.05):
+    cmp_shape = x.shape == y.shape
+    print(x.shape, y.shape)
+
+    x_sig = significant_abs(x)
+    y_sig = significant_abs(y)
+
+    print(f"Numeric:")
+    print(x_sig)
+    print(f"Auto:")
+    print(y_sig)
+
+    error: np.ndarray = abs((x_sig - y_sig) / x_sig)
+    expected_error = abs((x_sig - x_sig * error) / x_sig)
+    diff = expected_error - error
+    diff[diff >= 0] = True
+
+    return {
+        "cmp_shape": cmp_shape,
+        "cmp_val": diff.all()
+    }
+
+
+def significant_abs(x: np.ndarray) -> np.ndarray:
+    return x[abs(x) > 10 ** -3]

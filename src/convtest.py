@@ -2,6 +2,7 @@ from libs.model.node_model import read
 from libs.model.node_model import NodeModel
 from libs.model.nodetemplate import ReLU, Sigmoid, Linear
 from libs.model.templates.conv2d import Conv2D
+from libs.model.templates.maxpool2d import MaxPool2D
 import numpy as np
 from libs.utils import datasets, dataset_processors as dp
 
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     # Preprocessing
     x_flat_n = x_train.shape[1] * x_train.shape[2]
     x_shape = x_train[0].shape
-    x_train = dp.zero_center(dp.grayscale(x_train))
+    x_train = dp.norm(x_train)
     y_train = dp.one_hot_encode(y_train, 10)
 
     sut: NodeModel | None = None
@@ -38,13 +39,15 @@ if __name__ == '__main__':
     else:
         sut = NodeModel()
         sut.build([
-            Conv2D(F=5, P=2, K=8, input_shape=x_shape),
-            Conv2D(F=5, P=2, K=16, flatten_output=True),
+            Conv2D(F=3, P=1, K=1, input_shape=x_shape),
+            MaxPool2D(F=2, S=2),
+            Conv2D(F=3, P=1, K=1),
+            MaxPool2D(F=2, S=2, flatten_output=True),
             # Conv2D(F=5, P=2, K=16, input_shape=x_shape, flatten_output=True),
-            Linear(24, c=0.5),
-            ReLU(24),
-            Linear(10, c=0.05),
-            Sigmoid(10),
+            Linear(128),
+            ReLU(128),
+            Linear(10),
+            Sigmoid(10)
         ])
 
     x_test = dp.zero_center(dp.grayscale(x_test))
@@ -54,8 +57,9 @@ if __name__ == '__main__':
     pred_len = 100
     sut.eval(x_test[:pred_len], y_test[:pred_len])
 
+    print(f"Mean: {x_train.mean()} Stdev: {x_train.std()}")
     print("Start")
-    sut.train(x_train, y_train, m=12 * 2, l=1, plot_cost=False, epochs=1)
+    sut.train(x_train, y_train, m=16, l=1, plot_cost=True, epochs=2)
 
     # Accuracy after
     pred_len = 1000
