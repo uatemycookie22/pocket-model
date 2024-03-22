@@ -50,8 +50,8 @@ class Conv2D(NodeTemplate):
 
         dc_da_dz = dc_da_dz.reshape(self.z_shape(x.shape))  # Upstream is flattened so it should be reshaped assuming input is square
 
-        dc_daL = np.zeros(x.shape)
-        dc_dw = np.zeros(kernel.shape)
+        dc_daL = np.zeros(x.shape) # Gradient to pass downstream
+        dc_dw = np.zeros(kernel.shape) # Gradient to update filter F
         depth = kernel.shape[2]
         for i in range(self.K):
             dc_da_dz_slice = linalg.assert_shape(dc_da_dz[:, :, i])
@@ -67,7 +67,7 @@ class Conv2D(NodeTemplate):
             dc_daL += result
 
         # dc_da_dz = dc_da_dz.flatten() if self.flatten_output is True else dc_da_dz  # Correct shape
-        dc_da_dz = np.einsum('ijk -> k', dc_da_dz)
+        dc_da_dz = np.einsum('ijk -> k', dc_da_dz) # Gradient to update bias
         return dc_dw, dc_da_dz, dc_daL
 
 
@@ -96,3 +96,10 @@ class Conv2D(NodeTemplate):
         input_shape = input_shape or self.input_shape
 
         return (self.K,)
+
+    def rand_w(self, input_shape=None):
+        input_shape = input_shape or self.input_shape
+        w_shape = self.w_shape(input_shape)
+
+        weights = np.random.randn(*w_shape) / np.sqrt(np.prod(input_shape))
+        return weights

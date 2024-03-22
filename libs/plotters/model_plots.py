@@ -165,7 +165,7 @@ class ActivationLog:
     def plot(self):
 
         # Create a line plot
-        plt.plot(np.arange(len(self.activations)), [linalg.abs_mean(layer) for layer in self.activations])
+        plt.plot(np.arange(len(self.activations) - 1), [np.mean(layer) for layer in self.activations[1:]])
 
         # Add labels and title
         plt.xlabel('Layer')
@@ -176,7 +176,7 @@ class ActivationLog:
         plt.show()
 
         # Stdev
-        plt.plot(np.arange(len(self.activations)), [np.std(layer) for layer in self.activations])
+        plt.plot(np.arange(len(self.activations) - 1), [np.std(layer) for layer in self.activations[1:]])
 
         # Add labels and title
         plt.xlabel('Layer')
@@ -186,10 +186,10 @@ class ActivationLog:
         # Display the plot
         plt.show()
 
-        return
+        # return
 
         for i, layer in enumerate(self.activations):
-            plt.hist(layer)
+            plt.hist(layer.flatten())
             plt.xlabel('Activation')
             plt.ylabel('Count')
             plt.title(f"Layer {i}")

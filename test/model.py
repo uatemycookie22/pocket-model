@@ -1,6 +1,7 @@
 import unittest
 
 import libs.model.templates.conv2d
+import libs.model.templates.maxpool2d
 from libs.model.model import Model
 from libs.model.network import Network
 from libs.model.node_model import NodeModel
@@ -13,7 +14,7 @@ from fixtures import inputs
 from libs.model_helpers import costs
 from libs.model import layertemplate
 from libs.utils import datasets
-from utils import numeric_grad
+from utils import numeric_grad, cmp_arr
 
 
 class ModelTest(unittest.TestCase):
@@ -1011,6 +1012,128 @@ class ModelTest(unittest.TestCase):
         ])
 
         sut.predict(xprocessed, plot_activations=False)
+
+    def test_backprop_maxpool(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(24)
+        N = 6
+        shape = (N, N)
+        x = np.random.rand(*shape)
+        x = (x / x.sum())
+
+        sut = NodeModel()
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=1, input_shape=x.shape),
+            libs.model.templates.maxpool2d.MaxPool2D(3, 3, flatten_output=True),
+            nodetemplate.ReLU(5)
+        ])
+
+        numericW, numericB = numeric_grad(sut, x)
+        prediction = sut.predict(x, plot_activations=False)
+
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            cmp = cmp_arr(numeric, auto)
+            self.assertTrue(cmp["cmp_shape"])
+            self.assertTrue(cmp["cmp_val"])
+
+            layer += 1
+
+        numericB.reverse()
+
+        layer = 0
+        print("Bias")
+        for numeric, auto in zip(numericB, gradB):
+            cmp = cmp_arr(numeric, auto)
+            self.assertTrue(cmp["cmp_shape"])
+            self.assertTrue(cmp["cmp_val"])
+
+            layer += 1
+
+    def test_backprop_maxpool2(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(24)
+        N = 28
+        shape = (N, N)
+        x = np.random.rand(*shape)
+        x = (x / x.sum())
+
+        sut = NodeModel()
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, input_shape=x.shape),
+            libs.model.templates.maxpool2d.MaxPool2D(2, 2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1),
+            libs.model.templates.maxpool2d.MaxPool2D(2, 2, flatten_output=True),
+            nodetemplate.Linear(10),
+            nodetemplate.ReLU(10),
+            nodetemplate.Linear(10),
+        ])
+
+        numericW, numericB = numeric_grad(sut, x)
+        prediction = sut.predict(x, plot_activations=False)
+
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print("Layer", layer)
+            cmp = cmp_arr(numeric, auto)
+            self.assertTrue(cmp["cmp_shape"])
+            self.assertTrue(cmp["cmp_val"])
+
+            layer += 1
+
+        numericB.reverse()
+
+    def test_backprop_maxpool3(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(25)
+        N = 28
+        shape = (N, N)
+        x = np.random.rand(*shape)
+        x = (x / x.sum())
+
+        sut = NodeModel()
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=2, input_shape=x.shape),
+            libs.model.templates.maxpool2d.MaxPool2D(2, 2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=4),
+            libs.model.templates.maxpool2d.MaxPool2D(2, 2, flatten_output=True),
+            nodetemplate.Linear(10),
+            nodetemplate.ReLU(10),
+            nodetemplate.Linear(10),
+        ])
+
+        numericW, numericB = numeric_grad(sut, x)
+        prediction = sut.predict(x, plot_activations=False)
+
+        gradW, gradB, gradA = sut.step(x, np.array(0), costs.dabs_squared, plot_w_grad=False)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print("Layer", len(numericW) - layer - 1)
+
+            if auto is None:
+                print("SKIP")
+                layer += 1
+                continue
+
+            cmp = cmp_arr(numeric, auto)
+            self.assertTrue(cmp["cmp_shape"], f"Mismatching shapes NUMERIC {numeric.shape} AUTO {auto.shape}")
+            self.assertTrue(cmp["cmp_val"])
+
+            layer += 1
+
+        numericB.reverse()
+
 
 if __name__ == '__main__':
     unittest.main()

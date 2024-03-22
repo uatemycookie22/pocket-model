@@ -23,6 +23,13 @@ class NodeTemplate:
         input_shape = input_shape or self.input_shape
         return self.f_shape(input_shape)
 
+    def rand_w(self, input_shape=None):
+        input_shape = input_shape or self.input_shape
+        w_shape = self.w_shape(input_shape)
+
+        weights = np.random.randn(*w_shape) / np.sqrt(w_shape[1])
+        return weights
+
 
 class ReLU(NodeTemplate):
     def __init__(self, current_n, **kwargs):
@@ -40,9 +47,9 @@ class ReLU(NodeTemplate):
         z = linalg.matvec(w, x) + b
 
         da_dz = activators.drelu(z)
-        dc_da_dz = upstream * da_dz
-        dc_dw = linalg.dcost_dw(dc_da_dz, x)
-        dc_daL = linalg.dcost_dpreva(dc_da_dz, w)  # j X 1
+        dc_da_dz = upstream * da_dz # Bias gradient
+        dc_dw = linalg.dcost_dw(dc_da_dz, x) # Weight gradient
+        dc_daL = linalg.dcost_dpreva(dc_da_dz, w)  # j X 1, Activation gradient
 
         return dc_dw, dc_da_dz, dc_daL
 
@@ -53,6 +60,12 @@ class ReLU(NodeTemplate):
         input_shape = input_shape or self.input_shape
         return self.shape.w_shape(np.prod(input_shape))
 
+    def rand_w(self, input_shape=None) -> np.ndarray:
+        input_shape = input_shape or self.input_shape
+        w_shape = self.w_shape(input_shape)
+
+        weights = np.random.randn(*w_shape) / np.sqrt(w_shape[1] / 2)
+        return weights
 
 class Sigmoid(NodeTemplate):
     def __init__(self, current_n, **kwargs):
@@ -83,6 +96,34 @@ class Sigmoid(NodeTemplate):
         input_shape = input_shape or self.input_shape
         return self.shape.w_shape(np.prod(input_shape))
 
+class Tanh(NodeTemplate):
+    def __init__(self, current_n, **kwargs):
+        self.layer_name = 'tanh'
+        self.current_n = current_n
+        self.shape = DenseShape(current_n)
+
+        super().__init__(self.layer_name, activators.tanh, activators.dtanh, **kwargs)
+
+    def f(self, x: np.ndarray, w: np.ndarray, b: np.ndarray):
+        z = linalg.matvec(w, x) + b
+        return activators.tanh(z)
+
+    def from_upstream(self, upstream: np.ndarray, x: np.ndarray, w: np.ndarray, b: np.ndarray):
+        z = linalg.matvec(w, x) + b
+
+        da_dz = activators.dtanh(z)
+        dc_da_dz = upstream * da_dz
+        dc_dw = linalg.dcost_dw(dc_da_dz, x)
+        dc_daL = linalg.dcost_dpreva(dc_da_dz, w)  # j X 1
+
+        return dc_dw, dc_da_dz, dc_daL
+
+    def f_shape(self, input_shape=None) -> tuple:
+        return self.shape.f_shape()
+
+    def w_shape(self, input_shape=None) -> tuple:
+        input_shape = input_shape or self.input_shape
+        return self.shape.w_shape(np.prod(input_shape))
 
 class Linear(NodeTemplate):
     def __init__(self, current_n, c=1, **kwargs):
