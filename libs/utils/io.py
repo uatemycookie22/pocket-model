@@ -65,6 +65,7 @@ def nodelayer_factory(**kwargs) -> nodetemplate.NodeTemplate:
     F = kwargs.get('F') or 3
     P = kwargs.get('P') or 1
     K = kwargs.get('K') or 1
+    S = kwargs.get('S') or 2
     flatten_output = kwargs.get('flatten_output') or False
 
     match layer_name:
@@ -76,6 +77,8 @@ def nodelayer_factory(**kwargs) -> nodetemplate.NodeTemplate:
             return nodetemplate.Sigmoid(layer_nodes, input_shape=input_shape)
         case 'conv2d':
             return libs.model.templates.conv2d.Conv2D(F=F, P=P, K=K, input_shape=input_shape, flatten_output=flatten_output)
+        case 'maxpool2d':
+            return libs.model.templates.maxpool2d.MaxPool2D(F=F, S=S, input_shape=input_shape, flatten_output=flatten_output)
         case _:
             raise ValueError(f'{layer_name} not a valid layer identifier')
 
