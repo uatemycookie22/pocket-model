@@ -12,6 +12,7 @@ from libs.model_helpers import costs
 from libs.plotters.model_plots import CostRT, Eval, ActivationLog, WeightGradLog
 from libs.utils import io
 from datetime import datetime
+import datetime as dt
 
 
 class NodeModel:
@@ -101,9 +102,15 @@ class NodeModel:
         plotter.plot()
         train_len = len(train_y)
 
+        train_start = time.time()
+
         for epoch in range(epochs):
             train_x, train_y = linalg.shuffle(train_x, train_y)
 
+            print(f"\nEpoch {epoch}")
+            print("Duration\tProgress\tBatch rt\tTrain accuracy\tTraining cost\n"
+                  "_______________________________________________________________________")
+            stats = None
             for i in range(0, train_len, m):
                 batch_start = time.time()
                 batch_sample_x = train_x[i:i + m]
@@ -120,26 +127,42 @@ class NodeModel:
 
                 # Evaluation
                 if plot_cost:
-
-
-
                     batch = i // m
                     modulo = max(1, (math.floor(train_len * p_progress) // m))
+                    progress = "%0.2f" % (100 * i / train_len)
+
                     if batch % modulo == 0 and i > 0:
                         stats = self.eval(train_x[:12], train_y[:12], summary=False)
-                        progress = "%0.2f" % (100 * i / train_len)
-                        print(f"~~~~~~~~~~~~~~~~~~~~~~~~~ Epoch: {epoch}\n"
-                              f"Progress: {progress}%\n"
-                              f"Train cost: {'%0.2f' % (stats['average_cost'])}\n"
-                              f"Train accuracy: {'%0.2f' % stats['accuracy']}\n"
-                              f"Batch rt: {'%0.2f' % batch_rt}")
                         plotter.add(stats['average_cost'], stats['accuracy'])
+
+                    if batch % 10 == 0:
+                        if stats is None:
+                            print(f"\r{'%0.2f' % (time.time() - train_start)}\t\t"
+                                  f"{progress}%\t\t"
+                                  f"{'%0.2f' % batch_rt}\t"
+                                  , end='', flush=True)
+                        else:
+                            print(f"\r{'%0.2f' % (time.time() - train_start)}\t\t"
+                                  f"{progress}%\t\t"
+                                  f"{'%0.2f' % batch_rt}\t\t"
+                                  f"{'%0.2f' % (stats['accuracy'])}\t\t\t"
+                                  f"{'%0.2f' % (stats['average_cost'])}\t\t"
+                                  , end='', flush=True)
 
                 if plot_w_grad:
                     self.w_gradLog.add(w_gradients)
 
+            print("")
         if plot_cost:
             plotter.show()
+
+        train_time = time.time() - train_start
+        duration = str(dt.timedelta(seconds=int(train_time)))
+        print(f"\n\nEvaluation\n---------------\nTotal train time: {duration} hh:mm:ss")
+
+        return {
+            "train_time": train_time
+        }
 
     def eval(self, x, y, summary=True, print_preds=False, plot=False):
         assert len(x) == len(y), "Length of training data must be same as length of labels"
