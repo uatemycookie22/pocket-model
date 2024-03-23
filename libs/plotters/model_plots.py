@@ -48,7 +48,7 @@ class CostRT:
         self.fig.canvas.flush_events()
         # plt.ylabel('Cost (absolute)')
         # plt.xlabel('Time (seconds)')
-        #plt.legend(loc="best")
+        # plt.legend(loc="best")
         plt.show()
 
 
@@ -78,6 +78,7 @@ class Eval:
 
         # Prepare the subplots
         fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+        fig.suptitle("Top costs")
 
         for i, example in enumerate(top_5):
             # Reshape the flattened image data for display, assuming the original shape was 28x28
@@ -98,14 +99,23 @@ class Eval:
 
     def show_low_correct(self, examples):
         # Sort the examples by cost in descending order
-        #examples.sort(key=lambda x: x['cost'])
+        examples.sort(key=lambda x: x['cost'])
 
         # Get the top 5 examples
-        low_5 = [example for example in examples if example['prediction'] == example['label']]
-        low_5 = low_5[len(low_5)//2 + 2000:len(low_5)//2 + 15 + 2000]
+        dict = {}
+        i = 0
+        while len(dict) < 5:
+            label = examples[i]['label']
+            dict[label] = examples[i]
+            i += 1
+
+        low_5 = []
+        for val in dict.values():
+            low_5.append(val)
 
         # Prepare the subplots
-        fig, axes = plt.subplots(1, 15, figsize=(15, 3))
+        fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+        fig.suptitle("Low costs - Correct")
 
         for i, example in enumerate(low_5):
             # Reshape the flattened image data for display, assuming the original shape was 28x28
@@ -133,6 +143,7 @@ class Eval:
 
         # Prepare the subplots
         fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+        fig.suptitle("Low costs - Incorrect")
 
         for i, example in enumerate(low_5):
             # Reshape the flattened image data for display, assuming the original shape was 28x28
@@ -163,7 +174,6 @@ class ActivationLog:
         self.ax2 = None
 
     def plot(self):
-
         # Create a line plot
         plt.plot(np.arange(len(self.activations) - 1), [np.mean(layer) for layer in self.activations[1:]])
 
@@ -195,17 +205,16 @@ class ActivationLog:
             plt.title(f"Layer {i}")
             plt.show()
 
-
     def add(self, x: list[np.ndarray]):
         self.activations = x.copy()
 
     def show(self):
-
         # self.fig.canvas.draw()
         # self.fig.canvas.flush_events()
         plt.ylabel('Mean sum')
         plt.xlabel('Layer')
         plt.show()
+
 
 class WeightGradLog:
     def __init__(self):
@@ -235,7 +244,7 @@ class WeightGradLog:
         x = x.copy()
         x.reverse()
         for layer in x:
-            gt_zero = abs(layer[abs(layer) > 10**-3])
+            gt_zero = abs(layer[abs(layer) > 10 ** -3])
             if (len(gt_zero) > 0):
                 self.w_grad.append(gt_zero.mean())
             else:
@@ -248,4 +257,26 @@ class WeightGradLog:
         # self.fig.canvas.flush_events()
         plt.ylabel('Mean sum')
         plt.xlabel('Layer')
+        plt.show()
+
+
+class FilterColor:
+    def plot_ndarrays(self, filters: [np.ndarray]):
+        num_images = len(filters)
+        num_cols = 4  # Number of columns for subplots
+        num_rows = num_images // num_cols + (1 if num_images % num_cols != 0 else 0)
+
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 3 * num_rows))
+
+        for i, image in enumerate(filters):
+            ax = axes[i // num_cols, i % num_cols] if num_rows > 1 else axes[i % num_cols]
+            ax.imshow(image, cmap='gray')
+            ax.axis('off')
+
+        # Remove empty subplots if there are any
+        for j in range(i + 1, num_rows * num_cols):
+            axes.flatten()[j].axis('off')
+
+        # Adjust layout
+        plt.tight_layout()
         plt.show()
