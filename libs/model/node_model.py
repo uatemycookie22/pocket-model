@@ -107,9 +107,10 @@ class NodeModel:
         for epoch in range(epochs):
             train_x, train_y = linalg.shuffle(train_x, train_y)
 
-            print(f"\nEpoch {epoch}")
-            print("Duration\tProgress\tBatch rt\tTrain accuracy\tTraining cost\n"
-                  "_______________________________________________________________________")
+            if plot_cost:
+                print(f"\nEpoch {epoch}")
+                print("Duration\tProgress\tBatch rt\tTrain accuracy\tTraining cost\n"
+                      "_______________________________________________________________________")
             stats = None
             for i in range(0, train_len, m):
                 batch_start = time.time()
