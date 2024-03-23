@@ -1,3 +1,4 @@
+import math
 import time
 from typing import Any
 
@@ -94,7 +95,7 @@ class NodeModel:
 
     def train(self, train_x: np.ndarray, train_y: np.ndarray,
               epochs=1, m=12, l=0.003, plot_cost=False, plot_accuracy=False, quit_threshold=0.01,
-              plot_w_grad=False):
+              plot_w_grad=False, p_progress=0.1):
         plotter = CostRT()
 
         plotter.plot()
@@ -120,11 +121,14 @@ class NodeModel:
                 # Evaluation
                 if plot_cost:
 
-                    stats = self.eval(train_x[:27], train_y[:27], summary=False)
 
-                    if (i // m) % max(1, ((train_len * 10) // (100 * m))) == 0 and i > 0:
+
+                    batch = i // m
+                    modulo = max(1, (math.floor(train_len * p_progress) // m))
+                    if batch % modulo == 0 and i > 0:
+                        stats = self.eval(train_x[:12], train_y[:12], summary=False)
                         progress = "%0.2f" % (100 * i / train_len)
-                        print(f"Epoch: {epoch}\n"
+                        print(f"~~~~~~~~~~~~~~~~~~~~~~~~~ Epoch: {epoch}\n"
                               f"Progress: {progress}%\n"
                               f"Train cost: {'%0.2f' % (stats['average_cost'])}\n"
                               f"Train accuracy: {'%0.2f' % stats['accuracy']}\n"

@@ -51,11 +51,7 @@ class MaxPool2D(NodeTemplate):
         return shape if self.flatten_output is False else np.prod(shape)
 
     def w_shape(self, input_shape=None) -> tuple:
-        input_shape = input_shape or self.input_shape
-
-        flat_shape = (self.F, self.F)
-        depth_shape = flat_shape + (1,) if len(input_shape) <= 2 else flat_shape + (input_shape[-1],)
-        return depth_shape + (self.K,)
+        return (1,)
 
     def z_shape(self, input_shape=None) -> tuple:
         input_shape = input_shape or self.input_shape

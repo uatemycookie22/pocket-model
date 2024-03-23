@@ -10,10 +10,12 @@ class Conv2D(NodeTemplate):
         self.F = F
         self.K = K
         self.flatten_output = flatten_output
+        self.z_cache = None
         super().__init__(self.layer_name, activators.relu, activators.drelu, **kwargs)
 
     def f(self, x: np.ndarray, kernel: np.ndarray, b: np.ndarray):
         z = self.z(x, kernel, b)
+        self.z_cache = z
 
         return activators.relu(z)
 
@@ -42,7 +44,8 @@ class Conv2D(NodeTemplate):
         xPadded = linalg.pad_to_axis(x, P, axis=1)
         xPadded = linalg.assert_shape(xPadded) # To 3D
 
-        z = self.z(x, kernel, b) # conv(x) + b
+        self.z_cache = self.z_cache if self.z_cache is not None else self.z(x, kernel, b)
+        z = self.z_cache
         z = z.flatten() if self.flatten_output is True else z
 
         da_dz = activators.drelu(z)

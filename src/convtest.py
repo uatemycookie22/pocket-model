@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # Data selection
     (x_train, y_train), (x_test, y_test) = datasets.load_mnist()
 
-    train_size = 12 * 1000 * 1
+    train_size = 12 * 100 * 1
     x_train = x_train[:train_size]
     y_train = y_train[:train_size]
 
@@ -39,9 +39,9 @@ if __name__ == '__main__':
     else:
         sut = NodeModel()
         sut.build([
-            Conv2D(F=3, P=1, K=1, input_shape=x_shape),
+            Conv2D(F=3, P=1, K=4, input_shape=x_shape),
             MaxPool2D(F=2, S=2),
-            Conv2D(F=3, P=1, K=1),
+            Conv2D(F=3, P=1, K=8),
             MaxPool2D(F=2, S=2, flatten_output=True),
             # Conv2D(F=5, P=2, K=16, input_shape=x_shape, flatten_output=True),
             Linear(128),
@@ -59,10 +59,10 @@ if __name__ == '__main__':
 
     print(f"Mean: {x_train.mean()} Stdev: {x_train.std()}")
     print("Start")
-    sut.train(x_train, y_train, m=16, l=1, plot_cost=True, epochs=2)
+    sut.train(x_train, y_train, m=16, l=1, plot_cost=True, epochs=1, p_progress=0.25)
 
     # Accuracy after
-    pred_len = 1000
+    pred_len = 100
     sut.eval(x_test[:pred_len], y_test[:pred_len])
 
 
