@@ -24,6 +24,9 @@ class NodeModel:
         self.activationLog = ActivationLog()
         self.w_gradLog = WeightGradLog()
 
+        # Momentum
+        self.vx = []
+
     # Given a list of layers (n nodes for layer L and activator),
     # build randomized neural network
     def build(self, layers: list[nodetemplate.NodeTemplate]):
@@ -96,13 +99,15 @@ class NodeModel:
 
     def train(self, train_x: np.ndarray, train_y: np.ndarray,
               epochs=1, m=12, l=0.003, plot_cost=False, plot_accuracy=False, quit_threshold=0.01,
-              plot_w_grad=False, p_progress=0.1):
+              plot_w_grad=False, p_progress=0.1, rho=0.9, momentum=False):
         plotter = CostRT()
 
         plotter.plot()
         train_len = len(train_y)
 
         train_start = time.time()
+
+        self.vx = [] # Initialize momentum
 
         for epoch in range(epochs):
             train_x, train_y = linalg.shuffle(train_x, train_y)
@@ -117,14 +122,25 @@ class NodeModel:
                 batch_sample_x = train_x[i:i + m]
                 batch_sample_y = train_y[i:i + m]
 
-                # Calculate gradient
                 w_gradients, b_gradient = self.batch(batch_sample_x, batch_sample_y)
                 batch_rt = time.time() - batch_start
 
+                # Update momentum
+                if len(self.vx) == 0:
+                    self.vx = w_gradients
+                else:
+                    for L in range(len(self.vx)):
+                        self.vx[L] = rho * self.vx[L] + w_gradients[L]
+
                 # Update weights
-                for L in range(len(w_gradients)):
-                    self.nn.weights[L] -= w_gradients[L] * (l / m)
-                    self.nn.biases[L] -= b_gradient[L] * (l / m)
+                if momentum:
+                    for L in range(len(w_gradients)):
+                        self.nn.weights[L] -= self.vx[L] * (l / m)
+                        self.nn.biases[L] -= b_gradient[L] * (l / m)
+                else:
+                    for L in range(len(w_gradients)):
+                        self.nn.weights[L] -= w_gradients[L] * (l / m)
+                        self.nn.biases[L] -= b_gradient[L] * (l / m)
 
                 # Evaluation
                 if plot_cost:
@@ -132,8 +148,8 @@ class NodeModel:
                     modulo = max(1, (math.floor(train_len * p_progress) // m))
                     progress = "%0.2f" % (100 * i / train_len)
 
-                    if batch % modulo == 0 and i > 0:
-                        stats = self.eval(train_x[:12], train_y[:12], summary=False)
+                    if batch % modulo == 0:
+                        stats = self.eval(train_x[:19], train_y[:19], summary=False)
                         plotter.add(stats['average_cost'], stats['accuracy'])
 
                     if batch % 10 == 0:

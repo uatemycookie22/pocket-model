@@ -11,9 +11,9 @@ np.set_printoptions(precision=2, suppress=True)
 
 # Data selection
 print("Loading dataset...")
-(x_train, y_train), (x_test, y_test) = datasets.load_mnist()
+(x_train, y_train), (x_test, y_test) = datasets.load_mnist_fashion()
 
-train_size = 12 * 1000 * 1
+train_size = 12 * 500 * 1
 x_train = x_train[:train_size]
 y_train = y_train[:train_size]
 
@@ -28,8 +28,9 @@ y_test = dp.one_hot_encode(y_test, 10)
 
 # Define your function to be executed
 def tune_conv_lr(arg):
-    lr = 0.76
-    batch = np.random.randint(1, 32)*2
+    lr    = 0.1  #10**np.random.uniform(-1, -5)
+    batch = 10   #np.random.randint(1, 8) * 2
+    rho   = 0.9  #np.random.uniform(0.1, 0.99)
 
     sut: NodeModel = NodeModel()
     sut.build([
@@ -41,12 +42,12 @@ def tune_conv_lr(arg):
         Sigmoid(10)
     ])
 
-    print(f"Learning rate: {'%0.4f' % lr} Batch size: {batch}")
+    print(f"Learning rate: {'%0.4f' % lr} Batch size: {batch} Rho: {rho}")
 
-    result = sut.train(x_train, y_train, m=16, l=lr, plot_cost=False, epochs=1, p_progress=0.1)
+    result = sut.train(x_train, y_train, m=batch, l=lr, rho=rho, plot_cost=False, epochs=1, p_progress=0.1)
 
     # Accuracy after
     pred_len = 100
-    stats = sut.eval(x_test[:pred_len], y_test[:pred_len])
+    stats = sut.eval(x_test[:pred_len], y_test[:pred_len], summary=False)
 
-    print(f"Learning rate: {'%0.4f' % lr} Batch size: {batch} Accuracy {'%0.2f' % stats['accuracy']}")
+    print(f"Learning rate: {'%0.4f' % lr} Batch size: {batch} Rho: {rho} Accuracy {'%0.2f' % stats['accuracy']}")

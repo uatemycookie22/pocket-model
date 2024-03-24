@@ -21,7 +21,7 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(processes=num_processes)
 
     # Define the arguments for your function
-    arguments = range(6)
+    arguments = range(24)
 
 
     # Define your function to be executed
