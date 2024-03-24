@@ -1,4 +1,5 @@
 import math
+import multiprocessing
 import time
 from typing import Any
 
@@ -13,16 +14,51 @@ from libs.plotters.model_plots import CostRT, Eval, ActivationLog, WeightGradLog
 from libs.utils import io
 from datetime import datetime
 import datetime as dt
+import concurrent.futures
+import itertools
+import multiprocessing as mp
 
+from libs.utils.process_queue import ProcessQueue
+
+def worker(input, output):
+    for func, args in iter(input.get, 'STOP'):
+        result = func(*args)
+        output.put(result)
+
+
+def step_worker(label: np.ndarray, dcost_func, activations, weights, biases, layer_templates):
+    dc_dw = []
+    dc_db = []
+    dc_da = []
+
+    dc_daL = None
+    for L in range(len(weights) - 1, -1, -1):
+        layer: Any = layer_templates[L]
+        w = weights[L]
+        b = biases[L]
+
+        # Find derivative of cost with respect to its weights
+        if dc_daL is None:
+            dc_daL = dcost_func(activations[L + 1], label)
+
+        dc_dwL, dc_dbL, dc_daL = layer.from_upstream(dc_daL, activations[L], w, b)
+
+        dc_dw.append(dc_dwL)
+        dc_da.append(dc_daL)
+        dc_db.append(dc_dbL)
+
+    return dc_dw, dc_db, dc_da
 
 class NodeModel:
-    def __init__(self, costf = costs.abs_squared, dcostf = costs.dabs_squared):
+    def __init__(self, costf=costs.abs_squared, dcostf=costs.dabs_squared):
+        self.pq = None
         self.nn = NodeNetwork()
         self.costf = costf
         self.dcostf = dcostf
         self._built = False
         self.activationLog = ActivationLog()
         self.w_gradLog = WeightGradLog()
+        self.multiprocess = False
 
         # Momentum
         self.vx = []
@@ -64,7 +100,7 @@ class NodeModel:
 
             # Find derivative of cost with respect to its weights
             if dc_daL is None:
-                dc_daL = dcost_func(activations[L+1], label)
+                dc_daL = dcost_func(activations[L + 1], label)
 
             dc_dwL, dc_dbL, dc_daL = layer.from_upstream(dc_daL, activations[L], w, b)
 
@@ -82,12 +118,26 @@ class NodeModel:
         weight_gradients = []
         bias_gradients = []
 
-        for x_sample, y_sample in zip(x, y):
-            # total_cost += sut.sample(x, y, costs.abs_squared)
-            dc_dw, dc_db, _ = self.step(x_sample, y_sample, self.dcostf)
 
-            weight_gradients.append(dc_dw)
-            bias_gradients.append(dc_db)
+        if self.multiprocess is True:
+            for x_sample, y_sample in zip(x, y):
+                # total_cost += sut.sample(x, y, costs.abs_squared)
+                activations = self.nn.feed_forwards(x_sample)
+                self.pq.submit(step_worker, y_sample, self.dcostf, activations, self.nn.weights, self.nn.biases, self.nn.layer_templates)
+
+            batch_grads = self.pq.get()
+
+            for grads in batch_grads:
+                dc_dw, dc_db, _ = grads
+                weight_gradients.append(dc_dw)
+                bias_gradients.append(dc_db)
+        else:
+            for x_sample, y_sample in zip(x, y):
+                # total_cost += sut.sample(x, y, costs.abs_squared)
+                dc_dw, dc_db, _ = self.step(x_sample, y_sample, self.dcostf)
+
+                weight_gradients.append(dc_dw)
+                bias_gradients.append(dc_db)
 
         avg_weight_gradients = linalg.avg_gradient(weight_gradients)
         avg_bias_gradients = linalg.avg_gradient(bias_gradients)
@@ -99,16 +149,26 @@ class NodeModel:
 
     def train(self, train_x: np.ndarray, train_y: np.ndarray,
               epochs=1, m=12, l=0.003, plot_cost=False, plot_accuracy=False, quit_threshold=0.01,
-              plot_w_grad=False, p_progress=0.1, rho=0.9, momentum=False):
+              plot_w_grad=False, p_progress=0.1, rho=0.9, momentum=False, multiprocess=False):
         plotter = CostRT()
 
         plotter.plot()
         train_len = len(train_y)
 
+        self.vx = []  # Initialize momentum
+
+        # Initialize multiprocessing
+        print("Starting processes...")
+        multiprocessing.freeze_support()
+        manager = multiprocessing.Manager()
+        task_queue, done_queue = manager.Queue(), manager.Queue()
+
+        if multiprocess:
+            self.multiprocess=True
+            self.pq = ProcessQueue(min(m, 12), task_queue, done_queue)
+            self.pq.start()
+
         train_start = time.time()
-
-        self.vx = [] # Initialize momentum
-
         for epoch in range(epochs):
             train_x, train_y = linalg.shuffle(train_x, train_y)
 
@@ -117,6 +177,7 @@ class NodeModel:
                 print("Duration\tProgress\tBatch rt\tTrain accuracy\tTraining cost\n"
                       "_______________________________________________________________________")
             stats = None
+            init_stats = None
             for i in range(0, train_len, m):
                 batch_start = time.time()
                 batch_sample_x = train_x[i:i + m]
@@ -150,20 +211,21 @@ class NodeModel:
 
                     if batch % modulo == 0:
                         stats = self.eval(train_x[:19], train_y[:19], summary=False)
+                        init_stats = stats if init_stats is None else init_stats
                         plotter.add(stats['average_cost'], stats['accuracy'])
 
                     if batch % 10 == 0:
                         if stats is None:
                             print(f"\r{'%0.2f' % (time.time() - train_start)}\t\t"
                                   f"{progress}%\t\t"
-                                  f"{'%0.2f' % batch_rt}\t"
+                                  f"{'%0.4f' % batch_rt}\t"
                                   , end='', flush=True)
                         else:
                             print(f"\r{'%0.2f' % (time.time() - train_start)}\t\t"
                                   f"{progress}%\t\t"
-                                  f"{'%0.2f' % batch_rt}\t\t"
-                                  f"{'%0.2f' % (stats['accuracy'])}\t\t\t"
-                                  f"{'%0.2f' % (stats['average_cost'])}\t\t"
+                                  f"{'%0.2f' % (1000 * batch_rt)}\t\t"
+                                  f"{'%0.2f' % (init_stats['accuracy'])} -> {'%0.2f' % (stats['accuracy'])}\t"
+                                  f"{'%0.2f' % (init_stats['average_cost'])} -> {'%0.2f' % (stats['average_cost'])}\t"
                                   , end='', flush=True)
 
                 if plot_w_grad:
@@ -176,6 +238,10 @@ class NodeModel:
         train_time = time.time() - train_start
         duration = str(dt.timedelta(seconds=int(train_time)))
         print(f"\n\nEvaluation\n---------------\nTotal train time: {duration} hh:mm:ss")
+
+        if self.multiprocess:
+            self.pq.flush()
+            self.pq.stop()
 
         return {
             "train_time": train_time
@@ -220,7 +286,7 @@ class NodeModel:
         }
 
         if summary:
-            print(f"Accuracy: { '%0.2f' % stats['accuracy']} ({correct}/{pred_len})")
+            print(f"Accuracy: {'%0.2f' % stats['accuracy']} ({correct}/{pred_len})")
             print(f"Average cost: {'%0.2f' % stats['average_cost']}")
             # print(f"Average ff time: {'%0.2f' % stats['average_ff_rt']}")
 
@@ -242,7 +308,6 @@ class NodeModel:
         bias_list = [np.round(bias, decimals=3).tolist() for bias in self.nn.biases]
         layers_list = []
 
-
         for layer in self.nn.layer_templates:
             clean_dict = {}
             for key, val in layer.__dict__.items():
@@ -260,6 +325,7 @@ class NodeModel:
         }
 
         io.model_dump(output, f"{file_name}.json")
+
 
 def read(file_name: str) -> NodeModel:
     model_input = io.model_read(file_name)

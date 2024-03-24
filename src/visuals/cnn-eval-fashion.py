@@ -21,7 +21,8 @@ if __name__ == '__main__':
     (x_train, y_train), (x_test, y_test) = datasets.load_mnist_fashion()
 
     # Model construction
-    postfix = '03_23_1520'
+    # 03_24_0935 (89% accuracy)
+    postfix = '03_24_0935'
 
     sut: NodeModel | None = read(f'../models/model_{postfix}.json')
 
@@ -29,5 +30,5 @@ if __name__ == '__main__':
     y_test = dp.one_hot_encode(y_test, 10)
 
     # Accuracy before
-    pred_len = 1000
+    pred_len = 10000
     sut.eval(x_test[:pred_len], y_test[:pred_len], print_preds=True, plot=True)

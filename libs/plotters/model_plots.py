@@ -28,7 +28,9 @@ class CostRT:
         self.ax1.set_xlabel('Time (seconds)')
 
         self.ax1.set_ylabel('Cost (absolute)', color='r')
+
         self.ax2.set_ylabel('Accuracy (absolute)', color='g')
+        self.ax2.set_ylim([0, 1])
 
         self.start = time.time()
 
@@ -37,12 +39,18 @@ class CostRT:
         self.accuracies.append(x2)
         self.timestamps.append(time.time() - self.start)
 
+        maxc = self.costs[0]
+        for cost in self.costs:
+            maxc = max(cost, maxc)
+
+        self.ax1.set_ylim([0, maxc])
+
     def show(self):
+
         self.ax1.plot(self.timestamps, self.costs, 'r-')
         self.ax2.plot(self.timestamps, self.accuracies, 'g-')
 
         self.ax1.relim()
-        self.ax1.autoscale_view()
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
