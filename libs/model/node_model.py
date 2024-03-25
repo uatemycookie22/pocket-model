@@ -188,6 +188,7 @@ class NodeModel:
                       "_______________________________________________________________________")
             stats = None
             init_stats = None
+            epoch_start = time.time()
             for i in range(0, train_len, m):
                 batch_start = time.time()
                 batch_sample_x = train_x[i:i + m]
@@ -235,7 +236,8 @@ class NodeModel:
                                   f"{progress}%\t\t"
                                   f"{'%0.2f' % (1000 * batch_rt)}\t\t"
                                   f"{'%0.2f' % (init_stats['accuracy'])} -> {'%0.2f' % (stats['accuracy'])}\t"
-                                  f"{'%0.2f' % (init_stats['average_cost'])} -> {'%0.2f' % (stats['average_cost'])}\t"
+                                  f"{'%0.2f' % (init_stats['average_cost'])} -> {'%0.2f' % (stats['average_cost'])}\t\t"
+                                  f"{str(dt.timedelta(seconds=int((time.time() - epoch_start) / ((i + 1)/train_len))))} remaining"
                                   , end='', flush=True)
 
                 if plot_w_grad:

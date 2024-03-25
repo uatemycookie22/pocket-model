@@ -79,6 +79,8 @@ def nodelayer_factory(**kwargs) -> nodetemplate.NodeTemplate:
             return libs.model.templates.conv2d.Conv2D(F=F, P=P, K=K, input_shape=input_shape, flatten_output=flatten_output)
         case 'maxpool2d':
             return libs.model.templates.maxpool2d.MaxPool2D(F=F, S=S, input_shape=input_shape, flatten_output=flatten_output)
+        case 'softmax':
+            return nodetemplate.Softmax(layer_nodes, input_shape=input_shape)
         case _:
             raise ValueError(f'{layer_name} not a valid layer identifier')
 
