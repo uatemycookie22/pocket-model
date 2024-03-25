@@ -172,3 +172,36 @@ class DenseShape:
         input_shape = (self.current_n, input_shape)
 
         return input_shape
+
+class Softmax(NodeTemplate):
+    def __init__(self, current_n, **kwargs):
+        self.layer_name = 'softmax'
+        self.current_n = current_n
+        self.shape = DenseShape(current_n)
+
+        super().__init__(self.layer_name, activators.softmax_stable, activators.dsoftmax, **kwargs)
+
+    def f(self, x: np.ndarray, w: np.ndarray, b: np.ndarray):
+        z = linalg.matvec(w, x) + b
+        return activators.softmax_stable(z)
+
+    def from_upstream(self, upstream: np.ndarray, x: np.ndarray, w: np.ndarray, b: np.ndarray):
+        z = linalg.matvec(w, x) + b
+
+        f = activators.softmax_stable(z)
+
+        dA_a = np.sum(upstream * f, axis=0)
+
+        dc_da_dz = f * (upstream - dA_a)
+
+        dc_dw = linalg.dcost_dw(dc_da_dz, x)
+        dc_daL = linalg.dcost_dpreva(dc_da_dz, w)  # j X 1
+
+        return dc_dw, dc_da_dz, dc_daL
+
+    def f_shape(self, input_shape=None) -> tuple:
+        return self.shape.f_shape()
+
+    def w_shape(self, input_shape=None) -> tuple:
+        input_shape = input_shape or self.input_shape
+        return self.shape.w_shape(np.prod(input_shape))

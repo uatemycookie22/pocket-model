@@ -1135,5 +1135,50 @@ class ModelTest(unittest.TestCase):
         numericB.reverse()
 
 
+    def test_backprop_softmax(self):
+        np.set_printoptions(precision=2, suppress=True)
+        np.random.seed(31)
+        N = 28
+        shape = (N, N)
+        x = np.random.rand(*shape)
+        x = (x / x.sum())
+
+        sut = NodeModel()
+        sut.build([
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=2, input_shape=x.shape),
+            libs.model.templates.maxpool2d.MaxPool2D(2, 2),
+            libs.model.templates.conv2d.Conv2D(F=3, P=1, K=2,),
+            libs.model.templates.maxpool2d.MaxPool2D(2, 2, flatten_output=True),
+            nodetemplate.Linear(24),
+            nodetemplate.Softmax(10)
+        ])
+
+        prediction = sut.predict(x, plot_activations=False)
+
+        label = np.zeros((10,))
+        label[2] = 1
+        gradW, gradB, gradA = sut.step(x, label, costs.dabs_squared, plot_w_grad=False)
+        numericW, numericB = numeric_grad(sut, x, label)
+
+
+        numericW.reverse()
+        layer = 0
+        for numeric, auto in zip(numericW, gradW):
+            print("Layer", len(numericW) - layer - 1)
+
+            if auto is None:
+                print("SKIP")
+                layer += 1
+                continue
+
+            cmp = cmp_arr(numeric, auto)
+            self.assertTrue(cmp["cmp_shape"], f"Mismatching shapes NUMERIC {numeric.shape} AUTO {auto.shape}")
+            self.assertTrue(cmp["cmp_val"])
+
+            layer += 1
+
+        numericB.reverse()
+
+
 if __name__ == '__main__':
     unittest.main()

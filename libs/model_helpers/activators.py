@@ -50,3 +50,18 @@ def normal(x: np.ndarray) -> np.ndarray:
 
 def softmax_stable(x):
     return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
+def dsoftmax(x):
+    p = softmax_stable(x)
+    di = p * (1 - p)
+
+    dx = []
+    for i in range(len(p)):
+        dj = -p[i] * p
+        dj[i] = di[i]
+        dx.append(dj)
+
+    return np.array(dx)
+
+def select_except_i(arr, i):
+    return np.concatenate((arr[:i], arr[i+1:]))

@@ -3,9 +3,9 @@ import numpy as np
 from libs.model.node_model import NodeModel
 
 
-def numeric_grad(sut: NodeModel, x):
+def numeric_grad(sut: NodeModel, x, label):
     h = 1 / 10 ** 6
-    cost1 = np.square(sut.predict(x))
+    cost1 = np.square(sut.predict(x) - label)
 
     numericW = []
     for W in sut.nn.weights:
@@ -14,7 +14,7 @@ def numeric_grad(sut: NodeModel, x):
             tmp = W[idx]
             W[idx] += h
 
-            cost2 = np.square(sut.predict(x))
+            cost2 = np.square(sut.predict(x) - label)
 
             dw = (cost2 - cost1) / h
             dW[idx] = dw.sum()
@@ -30,7 +30,7 @@ def numeric_grad(sut: NodeModel, x):
             tmp = B[idx]
             B[idx] += h
 
-            cost2 = np.square(sut.predict(x))
+            cost2 = np.square(sut.predict(x) - label)
 
             db = (cost2 - cost1) / h
             dB[idx] = db.sum()
@@ -42,7 +42,7 @@ def numeric_grad(sut: NodeModel, x):
     return numericW, numericB
 
 
-def cmp_arr(x: np.ndarray, y: np.ndarray, error=0.05):
+def cmp_arr(x: np.ndarray, y: np.ndarray, allowed_error=0.05):
     cmp_shape = x.shape == y.shape
     print(x.shape, y.shape)
 
@@ -55,9 +55,10 @@ def cmp_arr(x: np.ndarray, y: np.ndarray, error=0.05):
     print(y_sig)
 
     error: np.ndarray = abs((x_sig - y_sig) / x_sig)
-    expected_error = abs((x_sig - x_sig * error) / x_sig)
+    expected_error = abs((x_sig - x_sig * allowed_error) / x_sig)
     diff = expected_error - error
     diff[diff >= 0] = True
+    diff[diff < 0] = False
 
     return {
         "cmp_shape": cmp_shape,
@@ -66,4 +67,5 @@ def cmp_arr(x: np.ndarray, y: np.ndarray, error=0.05):
 
 
 def significant_abs(x: np.ndarray) -> np.ndarray:
-    return x[abs(x) > 10 ** -3]
+    x[abs(x) < 10 ** -3] = 10**-3
+    return x

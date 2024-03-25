@@ -26,7 +26,12 @@ def worker(input, output):
         output.put(result)
 
 
-def step_worker(label: np.ndarray, dcost_func, activations, weights, biases, layer_templates):
+def step_worker(a, label: np.ndarray, dcost_func, weights, biases, layer_templates):
+    activations = [a]
+    for b, w, activator in zip(biases, weights, layer_templates):
+        a = activator.f(a, w, b)
+        activations.append(a)
+
     dc_dw = []
     dc_db = []
     dc_da = []
@@ -48,6 +53,7 @@ def step_worker(label: np.ndarray, dcost_func, activations, weights, biases, lay
         dc_db.append(dc_dbL)
 
     return dc_dw, dc_db, dc_da
+
 
 class NodeModel:
     def __init__(self, costf=costs.abs_squared, dcostf=costs.dabs_squared):
@@ -122,8 +128,12 @@ class NodeModel:
         if self.multiprocess is True:
             for x_sample, y_sample in zip(x, y):
                 # total_cost += sut.sample(x, y, costs.abs_squared)
-                activations = self.nn.feed_forwards(x_sample)
-                self.pq.submit(step_worker, y_sample, self.dcostf, activations, self.nn.weights, self.nn.biases, self.nn.layer_templates)
+                weights_clone = self.nn.weights[:]
+                biases_clone = self.nn.biases[:]
+                templates_clone = self.nn.layer_templates[:]
+
+                self.pq.submit(step_worker, x_sample, y_sample, self.dcostf, weights_clone, biases_clone,
+                               templates_clone)
 
             batch_grads = self.pq.get()
 
@@ -157,14 +167,14 @@ class NodeModel:
 
         self.vx = []  # Initialize momentum
 
-        # Initialize multiprocessing
-        print("Starting processes...")
-        multiprocessing.freeze_support()
-        manager = multiprocessing.Manager()
-        task_queue, done_queue = manager.Queue(), manager.Queue()
-
         if multiprocess:
-            self.multiprocess=True
+            # Initialize multiprocessing
+            print("Starting processes...")
+            multiprocessing.freeze_support()
+            manager = multiprocessing.Manager()
+            task_queue, done_queue = manager.Queue(), manager.Queue()
+
+            self.multiprocess = True
             self.pq = ProcessQueue(min(m, 12), task_queue, done_queue)
             self.pq.start()
 
