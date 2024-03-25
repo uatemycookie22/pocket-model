@@ -3,8 +3,8 @@ import numpy as np
 from libs.model.layertemplate import ReLU, Sigmoid, Linear
 from libs.utils import datasets, dataset_processors as dp
 
-SAVE_MODEL = True
-READ_MODEL = True
+SAVE_MODEL = False
+READ_MODEL = False
 
 if __name__ == '__main__':
     print("Seeding...")

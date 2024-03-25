@@ -6,9 +6,7 @@ def relu(x: np.ndarray) -> np.ndarray:
 
 
 def drelu(x: np.ndarray) -> np.ndarray:
-    x[x <= 0] = 0
-    x[x > 0] = 1
-    return x
+    return np.heaviside(x, 1)
 
 
 def leaky_relu(x: np.ndarray, alpha=0) -> np.ndarray:
@@ -52,3 +50,18 @@ def normal(x: np.ndarray) -> np.ndarray:
 
 def softmax_stable(x):
     return np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum()
+
+def dsoftmax(x):
+    p = softmax_stable(x)
+    di = p * (1 - p)
+
+    dx = []
+    for i in range(len(p)):
+        dj = -p[i] * p
+        dj[i] = di[i]
+        dx.append(dj)
+
+    return np.array(dx)
+
+def select_except_i(arr, i):
+    return np.concatenate((arr[:i], arr[i+1:]))

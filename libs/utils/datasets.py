@@ -5,6 +5,9 @@ import numpy as np
 def load_mnist():
     return tf.keras.datasets.mnist.load_data()
 
+def load_mnist_fashion():
+    return tf.keras.datasets.fashion_mnist.load_data()
+
 
 def load_dummy0():
     x_train = np.random.random((60000, 1))

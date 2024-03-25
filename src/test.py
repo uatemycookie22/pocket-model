@@ -23,7 +23,7 @@ if __name__ == '__main__':
     if READ_MODEL:
         # Model construction
         postfix = '05-19|19:17'
-        sut = read(f'models/model_{postfix}.json')
+        sut = read(f'models/model.json')
     else:
         sut = Model()
         sut.build([
