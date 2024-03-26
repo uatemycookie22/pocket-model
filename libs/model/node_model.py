@@ -1,5 +1,6 @@
 import math
 import multiprocessing
+import signal
 import time
 from typing import Any
 
@@ -19,6 +20,7 @@ import itertools
 import multiprocessing as mp
 
 from libs.utils.process_queue import ProcessQueue
+
 
 def worker(input, output):
     for func, args in iter(input.get, 'STOP'):
@@ -124,7 +126,6 @@ class NodeModel:
         weight_gradients = []
         bias_gradients = []
 
-
         if self.multiprocess is True:
             for x_sample, y_sample in zip(x, y):
                 # total_cost += sut.sample(x, y, costs.abs_squared)
@@ -178,6 +179,13 @@ class NodeModel:
             self.pq = ProcessQueue(min(m, 12), task_queue, done_queue)
             self.pq.start()
 
+            def killOnSig():
+                self.pq.flush()
+                self.pq.stop()
+
+            signal.signal(signal.SIGINT, killOnSig)
+            signal.signal(signal.SIGTERM, killOnSig)
+
         train_start = time.time()
         for epoch in range(epochs):
             train_x, train_y = linalg.shuffle(train_x, train_y)
@@ -194,7 +202,14 @@ class NodeModel:
                 batch_sample_x = train_x[i:i + m]
                 batch_sample_y = train_y[i:i + m]
 
-                w_gradients, b_gradient = self.batch(batch_sample_x, batch_sample_y)
+                w_gradients, b_gradient = None, None
+
+                try:
+                    w_gradients, b_gradient = self.batch(batch_sample_x, batch_sample_y)
+                except:
+                    self.pq.flush()
+                    self.pq.stop()
+
                 batch_rt = time.time() - batch_start
 
                 # Update momentum
@@ -218,7 +233,10 @@ class NodeModel:
                 if plot_cost:
                     batch = i // m
                     modulo = max(1, (math.floor(train_len * p_progress) // m))
-                    progress = "%0.2f" % (100 * i / train_len)
+                    progress = (i / train_len)
+
+                    epoch_duration = time.time() - epoch_start
+                    remaining = max((epoch_duration / (progress + 0.01)) - epoch_duration, 0)
 
                     if batch % modulo == 0:
                         stats = self.eval(train_x[:19], train_y[:19], summary=False)
@@ -233,11 +251,11 @@ class NodeModel:
                                   , end='', flush=True)
                         else:
                             print(f"\r{'%0.2f' % (time.time() - train_start)}\t\t"
-                                  f"{progress}%\t\t"
+                                  f"{'%0.2f' % (100 * progress)}%\t\t"
                                   f"{'%0.2f' % (1000 * batch_rt)}\t\t"
                                   f"{'%0.2f' % (init_stats['accuracy'])} -> {'%0.2f' % (stats['accuracy'])}\t"
                                   f"{'%0.2f' % (init_stats['average_cost'])} -> {'%0.2f' % (stats['average_cost'])}\t\t"
-                                  f"{str(dt.timedelta(seconds=int((time.time() - epoch_start) / ((i + 1)/train_len))))} remaining"
+                                  f"{str(dt.timedelta(seconds=int(remaining)))} remaining"
                                   , end='', flush=True)
 
                 if plot_w_grad:
